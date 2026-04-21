@@ -1,0 +1,1616 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 
+    Board Layout - Drag and Drop Interface
+    This HTML page creates a 4-column layout with draggable boards of various heights.
+    Users can drag boards between columns and reposition them within columns.
+    -->
+    <title>Pranto</title>
+    <script src="theme-bootstrap.js"></script>
+    <!-- Dexie.js for local database storage -->
+    <script defer src="lib/dexie.js"></script>
+    <!-- SortableJS for drag-and-drop reordering -->
+    <script defer src="lib/Sortable.min.js"></script>
+    <!-- Idiomorph for DOM morphing (reduces visual flashing) -->
+    <script defer src="lib/idiomorph.min.js"></script>
+    <script defer src="newtab/shared/core-utils.js"></script>
+    <script defer src="newtab/shared/admin-auth.js"></script>
+    <script defer src="newtab/shared/privacy-assistant.js"></script>
+    <script defer src="newtab/ui/feedback.js"></script>
+    <script defer src="newtab/ui/privacy-ui.js"></script>
+    <script defer src="newtab/features/ui-modes.js"></script>
+    <script defer src="newtab/features/quick-save-settings.js"></script>
+    <script defer src="newtab/features/search.js"></script>
+    <script defer src="newtab/features/wallpaper.js"></script>
+    <script defer src="newtab/flows/data-sync.js"></script>
+    <script defer src="newtab/workspace/pages.js"></script>
+    <script defer src="newtab/workspace/render.js"></script>
+    <script defer src="newtab/workspace/drag-drop.js"></script>
+    <script defer src="newtab/flows/trash.js"></script>
+    <script defer src="newtab.js"></script>
+    <!-- Supabase JS Library (bundled locally for CSP compliance) -->
+    <script defer src="lib/supabase.min.js"></script>
+    <!-- Supabase Configuration -->
+    <script defer src="supabase.js"></script>
+    <!-- Cloud Sync Manager -->
+    <script defer src="sync.js"></script>
+    <!-- Google Fonts for Welcome Screen -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="newtab.css">
+</head>
+
+<body class="not-authenticated">
+    <!-- Global Loading Overlay - Hidden by default, shown only for logged-in users during sync -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner-container">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" class="loading-spinner-icon">
+                    <path
+                        d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"
+                        stroke="white" stroke-width="2" stroke-linecap="round" />
+                </svg>
+            </div>
+            <h3 class="loading-title" id="loadingTitle">Loading LumiList...</h3>
+            <p class="loading-message" id="loadingMessage">Initializing your bookmarks</p>
+        </div>
+    </div>
+
+    <div class="workspace-startup-indicator" id="workspaceStartupIndicator" role="status" aria-live="polite"
+        aria-atomic="true">
+        <span class="spinner-small" aria-hidden="true"></span>
+        <span>Loading workspace</span>
+    </div>
+
+    <!-- Enhanced Page Navigation -->
+    <div class="page-navigation">
+        <div class="page-nav-container">
+            <!-- Left scroll arrow (hidden by default, shown when scrolled) -->
+            <button class="nav-arrow nav-arrow-left hidden" id="scrollLeft" title="Scroll Left">❮</button>
+
+            <!-- Tabs container with inline plus button -->
+            <div class="page-tabs-container" id="pageTabsContainer">
+                <div class="page-tabs" id="pageTabs">
+                    <!-- Page tabs will be populated here -->
+                </div>
+                <!-- Plus button inside container (shown when no overflow) -->
+                <button class="add-tab-btn" id="addPageBtn" title="Add New Page">+</button>
+            </div>
+
+            <!-- Right nav group (hidden by default, shown on overflow) -->
+            <div class="nav-right-group hidden" id="navRightGroup">
+                <button class="nav-arrow nav-arrow-right" id="scrollRight" title="Scroll Right">❯</button>
+                <button class="add-tab-btn" id="addPageBtnOverflow" title="Add New Page">+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right-Click Context Menu (positioned dynamically) -->
+    <div class="tab-menu-dropdown" id="tabMenuDropdown">
+        <div class="tab-menu-item" data-action="rename">
+            <span class="tab-menu-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" fill="none" aria-hidden="true">
+                    <path
+                        d="M714.538,78.452c-24.259,-23.235 -50.988,-35.008 -79.542,-35.008c-44.645,0 -77.227,28.843 -86.129,37.679c-12.552,12.419 -440.35,440.395 -440.35,440.395c-2.804,2.804 -4.829,6.321 -5.875,10.149c-9.637,35.654 -57.976,193.847 -58.466,195.449c-2.493,8.101 -0.267,16.937 5.697,22.901c4.295,4.273 10.015,6.565 15.868,6.565c2.315,0 4.629,-0.356 6.899,-1.091c1.625,-0.534 164.914,-53.302 191.799,-61.337c3.539,-1.068 6.788,-2.982 9.414,-5.586c16.981,-16.781 415.98,-411.351 442.465,-438.703c27.397,-28.22 41.017,-57.642 40.483,-87.353c-0.556,-29.355 -14.778,-57.62 -42.308,-84.037l0.045,-0.022Zm-172.771,73.844c11.328,2.737 38.079,11.729 65.387,39.281c27.597,27.842 35.053,59.667 36.455,66.923c-87.509,87.064 -288.945,286.363 -368.353,364.904c-7.322,-17.07 -19.184,-37.657 -38.257,-56.863c-23.279,-23.457 -46.982,-36.7 -65.254,-44.155c78.585,-78.607 283.826,-283.915 370,-370.067l0.022,-0.022Zm-400.223,407.635c12.241,3.249 37.634,12.686 63.518,38.769c19.941,20.119 29.355,42.286 33.584,55.817c-30.935,9.948 -98.682,33.317 -141.702,47.204c12.752,-41.974 34.296,-107.317 44.6,-141.791Zm542.504,-341.891c-0.912,0.935 -2.426,2.448 -4.229,4.273c-7.033,-18.116 -19.362,-41.396 -40.75,-62.939c-21.833,-22.011 -43.977,-34.986 -61.715,-42.664c1.513,-1.491 2.671,-2.671 3.138,-3.116c2.537,-2.515 25.661,-24.615 54.46,-24.615c16.58,0 32.872,7.567 48.406,22.478c18.428,17.693 27.953,35.142 28.265,51.878c0.312,17.092 -8.991,35.498 -27.597,54.704l0.022,0Z"
+                        fill="currentColor" />
+                </svg>
+            </span>
+            <span>Rename</span>
+        </div>
+        <div class="tab-menu-item" data-action="share">
+            <span class="tab-menu-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" fill="none" aria-hidden="true">
+                    <path
+                        d="M176.151,250.186c44.306,0 83.451,20.301 110.085,51.579c1.277,1.5 3.443,1.874 5.149,0.889l186.802,-107.858c1.392,-0.804 2.183,-2.349 2.02,-3.948c-9.18,-90.205 61.311,-159.847 143.642,-159.847c80.16,0 145.151,64.991 145.151,145.151c0,80.16 -64.991,145.151 -145.151,145.151c-48.88,0 -91.877,-24.357 -118.186,-61.371c-1.22,-1.716 -3.545,-2.223 -5.368,-1.17l-179.9,103.866c-1.514,0.874 -2.303,2.615 -1.963,4.33c3.92,19.744 3.811,38.762 -0.327,58.47c-0.363,1.729 0.428,3.495 1.959,4.377l184.564,106.216c1.763,1.014 4.003,0.577 5.254,-1.027c26.561,-34.036 67.485,-56.294 113.967,-56.294c80.16,0 145.151,64.991 145.151,145.151c0,80.16 -64.991,145.151 -145.151,145.151c-85.707,0 -156.892,-75.192 -142.922,-166.959c0.253,-1.664 -0.541,-3.313 -2,-4.152l-188.63,-108.53c-1.691,-0.973 -3.834,-0.613 -5.114,0.858c-26.598,30.553 -65.344,50.27 -109.032,50.27c-80.16,0 -145.151,-64.991 -145.151,-145.151c0,-80.16 64.991,-145.151 145.151,-145.151Zm447.698,4.664c43.402,0 78.698,-35.296 78.698,-78.698c0,-43.402 -35.296,-78.698 -78.698,-78.698c-104,0 -104.039,157.397 0,157.397Zm-447.698,219.186c43.402,0 78.698,-35.296 78.698,-78.698c0,-43.402 -35.296,-78.698 -78.698,-78.698c-43.402,0 -78.698,35.296 -78.698,78.698c0,43.402 35.296,78.698 78.698,78.698Zm447.698,228.513c43.402,0 78.698,-35.296 78.698,-78.698c0,-43.402 -35.296,-78.698 -78.698,-78.698c-104,0 -104.039,157.397 0,157.397Z"
+                        fill="currentColor" />
+                </svg>
+            </span>
+            <span>Share Page</span>
+        </div>
+        <div class="tab-menu-divider"></div>
+        <div class="tab-menu-item danger" data-action="delete">
+            <span class="tab-menu-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16"
+                    height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="10" y1="11" x2="10" y2="17" />
+                    <line x1="14" y1="11" x2="14" y2="17" />
+                </svg></span>
+            <span>Delete</span>
+        </div>
+    </div>
+
+    <!-- Main Clock Display -->
+    <div id="mainClock" class="main-clock hidden">
+        <div class="clock-time" id="clockTime">00:00:00</div>
+        <div class="clock-date" id="clockDate">Monday, April 21, 2026</div>
+        <div class="clock-resize-handle" id="clockResizeHandle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 19l4-4M10 19l9-9" />
+            </svg>
+        </div>
+    </div>
+
+    <!-- Main container with 4 columns for board layout -->
+    <div class="container">
+        <!-- Column 1: Will be populated from database -->
+        <div class="column" data-column="0">
+            <!-- Add Board button - will be inserted here -->
+        </div>
+
+        <!-- Column 2: Will be populated from database -->
+        <div class="column" data-column="1"></div>
+
+        <!-- Column 3: Will be populated from database -->
+        <div class="column" data-column="2"></div>
+
+        <!-- Column 4: Will be populated from database -->
+        <div class="column" data-column="3"></div>
+    </div>
+
+    <div class="search-backdrop" id="searchBackdrop"></div>
+
+    <!-- Search Overlay -->
+    <div class="search-overlay" id="searchOverlay">
+        <div class="search-input-shell">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search here" autocomplete="off">
+        </div>
+        <div class="search-results-panel hidden" id="searchResultsPanel">
+            <div class="search-filters-row">
+                <div class="search-scope-tabs" role="tablist" aria-label="Search scope">
+                    <button type="button" class="search-scope-chip active" data-search-scope="all"
+                        aria-pressed="true">All</button>
+                    <button type="button" class="search-scope-chip" data-search-scope="board"
+                        aria-pressed="false">Board</button>
+                    <button type="button" class="search-scope-chip" data-search-scope="title"
+                        aria-pressed="false">Title</button>
+                    <button type="button" class="search-scope-chip" data-search-scope="url"
+                        aria-pressed="false">URL</button>
+                    <button type="button" class="search-scope-chip" data-search-scope="note"
+                        aria-pressed="false">Description</button>
+                </div>
+                <label class="search-strict-toggle" for="searchStrictToggle" title="Use exact matching">
+                    <input type="checkbox" id="searchStrictToggle">
+                    <span class="search-strict-label">
+                        <span class="search-strict-check" aria-hidden="true"></span>
+                        Exact match
+                    </span>
+                </label>
+            </div>
+            <div class="search-results-grid" id="searchResultsGrid"></div>
+            <div class="search-result-empty hidden" id="searchEmptyState">No results found.</div>
+        </div>
+    </div>
+
+    <!-- Modal for adding new bookmarks -->
+    <div class="modal-overlay" id="addBookmarkModal">
+        <div class="modal">
+            <h3>Add New Bookmark</h3>
+            <form id="addBookmarkForm">
+                <div class="form-group">
+                    <label for="bookmarkTitle">Title *</label>
+                    <input type="text" id="bookmarkTitle" name="title" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="bookmarkUrl">URL *</label>
+                    <input type="url" id="bookmarkUrl" name="url" required placeholder="https://example.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="bookmarkDescription">Description</label>
+                    <div class="description-input-wrap">
+                        <textarea id="bookmarkDescription" name="description"
+                            placeholder="Optional description shown below the title..."></textarea>
+                        <span id="bookmarkDescriptionRemaining" class="description-char-remaining"
+                            aria-live="polite" aria-atomic="true"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bookmarkPassword">Password (Optional - for security check)</label>
+                    <input type="password" id="bookmarkPassword" name="password" placeholder="Enter a password to check strength">
+                </div>
+
+                <!-- Privacy & Security Analysis Result Container -->
+                <div id="addBookmarkPrivacyAnalysis" class="privacy-analysis-container hidden"></div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Bookmark</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for adding new boards -->
+    <div class="modal-overlay" id="addBoardModal">
+        <div class="modal">
+            <h3>Add New Board</h3>
+            <form id="addBoardForm">
+                <div class="form-group">
+                    <label for="boardName">Board Name *</label>
+                    <input type="text" id="boardName" name="name" required placeholder="Enter board name...">
+                </div>
+
+                <div class="form-group">
+                    <label for="boardDescription">Description</label>
+                    <textarea id="boardDescription" name="description"
+                        placeholder="Optional description for the board..."></textarea>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelBoardBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Board</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for editing bookmarks -->
+    <div class="modal-overlay" id="editBookmarkModal">
+        <div class="modal">
+            <h3>Edit Bookmark</h3>
+            <form id="editBookmarkForm">
+                <div class="form-group">
+                    <label for="editBookmarkUrl">URL *</label>
+                    <input type="url" id="editBookmarkUrl" name="url" required placeholder="https://example.com">
+                </div>
+
+                <div class="form-group">
+                    <div class="label-with-action">
+                        <label for="editBookmarkTitle">Title *</label>
+                        <button type="button" id="fetchEditTitleBtn" class="fetch-title-btn">Fetch Title</button>
+                    </div>
+                    <input type="text" id="editBookmarkTitle" name="title" required>
+                    <span id="fetchTitleError" class="fetch-error"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="editBookmarkDescription">Description</label>
+                    <div class="description-input-wrap">
+                        <textarea id="editBookmarkDescription" name="description"
+                            placeholder="Optional description shown below the title..."></textarea>
+                        <span id="editBookmarkDescriptionRemaining" class="description-char-remaining"
+                            aria-live="polite" aria-atomic="true"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editBookmarkPassword">Password (Optional - for security check)</label>
+                    <input type="password" id="editBookmarkPassword" name="password" placeholder="Enter a password to check strength">
+                </div>
+
+                <!-- Privacy & Security Analysis Result Container -->
+                <div id="editBookmarkPrivacyAnalysis" class="privacy-analysis-container hidden"></div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelEditBookmarkBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for editing board names -->
+    <div class="modal-overlay" id="editBoardModal">
+        <div class="modal">
+            <h3>Edit Board Name</h3>
+            <form id="editBoardForm">
+                <div class="form-group">
+                    <label for="editBoardName">Board Name *</label>
+                    <input type="text" id="editBoardName" name="name" required placeholder="Enter board name...">
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelEditBoardBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rename Page Modal -->
+    <div class="modal-overlay" id="renamePageModal">
+        <div class="modal">
+            <h3>Rename Page</h3>
+            <form id="renamePageForm">
+                <div class="form-group">
+                    <label for="renamePageInput">Page Name *</label>
+                    <input type="text" id="renamePageInput" name="name" required placeholder="Enter page name...">
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelRenamePageBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for delete confirmation -->
+    <div class="modal-overlay" id="deleteConfirmModal">
+        <div class="modal">
+            <h3 id="deleteConfirmTitle">Confirm Deletion</h3>
+            <div>
+                <p id="deleteConfirmMessage"></p>
+                <div id="deleteConfirmDetails"></div>
+                <p class="delete-warning">This action cannot be undone.</p>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="cancelDeleteBtn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Glass Confirm Modal -->
+    <div class="modal-overlay" id="glassConfirmModal">
+        <div class="modal">
+            <h3 id="glassConfirmTitle">Confirm</h3>
+            <div>
+                <p id="glassConfirmMessage"></p>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="glassConfirmCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="glassConfirmOkBtn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Prompt Modal -->
+    <div class="modal-overlay" id="reviewPromptModal">
+        <div class="modal review-prompt-modal">
+            <h3>Enjoying LumiList?</h3>
+            <p class="review-prompt-copy">
+                If LumiList is helping you organize links faster, a quick review on the Chrome Web Store helps us a
+                lot.
+            </p>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="reviewPromptNotNowBtn">Not now</button>
+                <button type="button" class="btn btn-primary" id="reviewPromptLeaveReviewBtn">Leave a review</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="floating-controls-rail" id="floatingControlsRail" aria-label="Workspace controls">
+        <!-- Floating Search Button -->
+        <button class="floating-control-btn floating-search-btn" id="floatingSearchBtn" title="Search boards and bookmarks">
+            <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <circle cx="11" cy="11" r="7"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+        </button>
+
+        <div class="floating-tools-group" id="floatingToolsGroup">
+            <div class="floating-tools-menu" id="floatingToolsMenu" role="group" aria-label="Workspace tools">
+                <!-- Floating Insights Button -->
+                <button class="floating-control-btn floating-insights-btn hidden" id="floatingInsightsBtn"
+                    title="Bookmark Usage Tracking Insights">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                </button>
+
+                <!-- Floating Import Button -->
+                <button class="floating-control-btn floating-import-btn" id="floatingImportBtn"
+                    title="Bulk Import bookmarks">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                </button>
+
+                <!-- Floating Incognito Toggle Button -->
+                <button class="floating-control-btn floating-btn floating-incognito-btn" id="floatingIncognitoBtn"
+                    title="All links in Incognito window">
+                    <svg xmlns="http://www.w3.org/2000/svg" clip-rule="evenodd" fill-rule="evenodd"
+                        stroke-linejoin="round" stroke-miterlimit="2" viewBox="0 0 120 112" width="24" height="24"
+                        fill="currentColor">
+                        <g transform="translate(0 -4)">
+                            <path
+                                d="m95 58.87v4.208h-70v-4.208zm-22.126-29.097.076.196 8.906 24.693h-43.712l8.867-24.693c.715-1.975 2.741-3.072 4.669-2.511l.192.061 8.128 2.858 8.089-2.858c1.919-.67 3.985.34 4.785 2.254zm4.626 37.341c7.506 0 13.611 6.409 13.611 14.288 0 7.878-6.105 14.286-13.611 14.286-7.117 0-12.872-5.755-13.494-13.062-3.772-2.531-6.845-.939-8.012-.082-.544 7.348-6.338 13.144-13.494 13.144-7.506 0-13.611-6.408-13.611-14.286 0-7.879 6.105-14.288 13.611-14.288 6.417 0 11.783 4.695 13.222 11.022 2.256-1.021 5.289-1.429 8.556.041 1.4-6.327 6.766-11.063 13.222-11.063zm0 4.082c-5.367 0-9.722 4.573-9.722 10.206s4.355 10.204 9.722 10.204 9.722-4.571 9.722-10.204-4.355-10.206-9.722-10.206zm-35 0c-5.367 0-9.722 4.573-9.722 10.206s4.355 10.204 9.722 10.204 9.722-4.571 9.722-10.204-4.355-10.206-9.722-10.206z"
+                                transform="matrix(1.723077 0 0 1.637986 -43.384591 -40.736145)" />
+                            <path d="m0 0h120v120h-120z" fill="none" />
+                        </g>
+                    </svg>
+                </button>
+
+                <!-- Floating Select Button (Multi-select mode) -->
+                <button class="floating-control-btn floating-btn floating-select-btn" id="floatingSelectBtn"
+                    title="Drag / Delete multiple bookmarks.">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                        <path d="M17 14l2 2 4-4" />
+                    </svg>
+                </button>
+
+                <!-- Floating Trash Button -->
+                <button class="floating-control-btn floating-trash-btn" id="floatingTrashBtn" title="Trash Bin">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                </button>
+
+                <!-- Floating Privacy Toggle Button -->
+                <button class="floating-control-btn floating-privacy-btn" id="floatingPrivacyBtn"
+                    title="Blur your bookmarks">
+                    <!-- Eye open icon (shown when blur is OFF) -->
+                    <svg class="eye-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24"
+                        height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    <!-- Eye with slash icon (shown when blur is ON) -->
+                    <svg class="eye-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24"
+                        height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path
+                            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                </button>
+            </div>
+
+            <button class="floating-control-btn floating-tools-toggle" id="floatingToolsToggle" title="More tools"
+                aria-expanded="false" aria-controls="floatingToolsMenu">
+                <span class="floating-tools-toggle-icon" aria-hidden="true">
+                    <span class="floating-tools-toggle-line floating-tools-toggle-line-top"></span>
+                    <span class="floating-tools-toggle-line floating-tools-toggle-line-middle"></span>
+                    <span class="floating-tools-toggle-line floating-tools-toggle-line-bottom"></span>
+                </span>
+            </button>
+        </div>
+
+        <!-- Floating Settings Button -->
+        <button class="floating-control-btn floating-settings-btn" id="floatingSettingsBtn" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="24" height="24" fill="currentColor">
+                <path
+                    d="M47.16,21.221l-5.91-0.966c-0.346-1.186-0.819-2.326-1.411-3.405l3.45-4.917c0.279-0.397,0.231-0.938-0.112-1.282 l-3.889-3.887c-0.347-0.346-0.893-0.391-1.291-0.104l-4.843,3.481c-1.089-0.602-2.239-1.08-3.432-1.427l-1.031-5.886 C28.607,2.35,28.192,2,27.706,2h-5.5c-0.49,0-0.908,0.355-0.987,0.839l-0.956,5.854c-1.2,0.345-2.352,0.818-3.437,1.412l-4.83-3.45 c-0.399-0.285-0.942-0.239-1.289,0.106L6.82,10.648c-0.343,0.343-0.391,0.883-0.112,1.28l3.399,4.863 c-0.605,1.095-1.087,2.254-1.438,3.46l-5.831,0.971c-0.482,0.08-0.836,0.498-0.836,0.986v5.5c0,0.485,0.348,0.9,0.825,0.985 l5.831,1.034c0.349,1.203,0.831,2.362,1.438,3.46l-3.441,4.813c-0.284,0.397-0.239,0.942,0.106,1.289l3.888,3.891 c0.343,0.343,0.884,0.391,1.281,0.112l4.87-3.411c1.093,0.601,2.248,1.078,3.445,1.424l0.976,5.861C21.3,47.647,21.717,48,22.206,48 h5.5c0.485,0,0.9-0.348,0.984-0.825l1.045-5.89c1.199-0.353,2.348-0.833,3.43-1.435l4.905,3.441 c0.398,0.281,0.938,0.232,1.282-0.111l3.888-3.891c0.346-0.347,0.391-0.894,0.104-1.292l-3.498-4.857 c0.593-1.08,1.064-2.222,1.407-3.408l5.918-1.039c0.479-0.084,0.827-0.5,0.827-0.985v-5.5C47.999,21.718,47.644,21.3,47.16,21.221z M25,32c-3.866,0-7-3.134-7-7c0-3.866,3.134-7,7-7s7,3.134,7,7C32,28.866,28.866,32,25,32z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Floating Wallpaper Button -->
+    <button class="floating-control-btn floating-wallpaper-btn" id="floatingWallpaperBtn"
+        title="Style and wallpaper">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" />
+        </svg>
+    </button>
+
+    <!-- Insights Popup -->
+    <div class="insights-popup" id="insightsPopup">
+        <div class="insights-header">
+            <h3>Usage Tracking Insights</h3>
+            <button class="close-insights-btn" id="closeInsightsBtn">&times;</button>
+        </div>
+        <div class="insights-content" id="insightsContent">
+            <div class="insights-loading">Analyzing your bookmark usage...</div>
+        </div>
+    </div>
+
+    <!-- Import Popup -->
+    <div class="import-popup" id="importPopup">
+        <button class="import-popup-item" id="importChromeBookmarksPopupBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="4" />
+                <line x1="21.17" y1="8" x2="12" y2="8" />
+                <line x1="3.95" y1="6.06" x2="8.54" y2="14" />
+                <line x1="10.88" y1="21.94" x2="15.46" y2="14" />
+            </svg>
+            <span>Import Browser Bookmarks</span>
+        </button>
+        <div class="import-popup-divider"></div>
+        <button class="import-popup-item" id="importLinksPopupBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+            </svg>
+            <span>Import Links from Text/File</span>
+        </button>
+    </div>
+
+    <!-- Wallpaper Popup -->
+    <div class="wallpaper-popup" id="wallpaperPopup" role="dialog" aria-modal="false"
+        aria-labelledby="wallpaperPopupTitle" aria-hidden="true" tabindex="-1" inert>
+        <div class="wallpaper-popup-header">
+            <h4 class="wallpaper-popup-title" id="wallpaperPopupTitle">Style</h4>
+        </div>
+        <div class="wallpaper-theme-toggle" role="group" aria-label="Theme mode">
+            <button type="button" class="wallpaper-theme-btn" id="wallpaperThemeDarkBtn"
+                data-theme-mode="dark">Dark</button>
+            <button type="button" class="wallpaper-theme-btn" id="wallpaperThemeLightBtn"
+                data-theme-mode="light">Light</button>
+        </div>
+        <div class="wallpaper-popup-section">
+            <div class="wallpaper-grid" id="wallpaperGrid"></div>
+            <p class="wallpaper-empty-state hidden" id="wallpaperEmptyState">
+                No wallpapers available for this theme yet. Add images to the matching wallpaper folder and run
+                npm run wallpapers:sync.
+            </p>
+            <div class="wallpaper-popup-actions">
+                <input type="file" id="wallpaperUploadInput" accept="image/*" class="hidden">
+                <button type="button" class="wallpaper-popup-action-btn" id="wallpaperUploadBtn">
+                    Upload Wallpaper
+                </button>
+                <button type="button" class="wallpaper-popup-action-btn wallpaper-gallery-link-btn"
+                    id="wallpaperGalleryLinkBtn">
+                    More Wallpapers
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="tab-menu-dropdown wallpaper-context-menu" id="wallpaperContextMenu" role="menu"
+        aria-label="Wallpaper options" aria-hidden="true"></div>
+    <div class="modal-overlay" id="wallpaperStyleModal">
+        <div class="modal wallpaper-style-modal">
+            <h3 id="wallpaperStyleModalTitle">Adjust Wallpaper Style</h3>
+            <p class="wallpaper-style-modal-subtitle" id="wallpaperStyleModalSubtitle">
+                Customize this theme on this device.
+            </p>
+            <div class="wallpaper-style-modal-controls" id="wallpaperStyleModalControls"></div>
+            <div class="modal-buttons wallpaper-style-modal-buttons">
+                <button type="button" class="btn btn-secondary" id="wallpaperStyleModalCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-secondary" id="wallpaperStyleModalResetBtn">Reset</button>
+                <button type="button" class="btn btn-primary" id="wallpaperStyleModalSaveBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Selection Mode Instruction Bar -->
+    <div class="selection-bar hidden" id="selectionBar">
+        <div class="selection-bar-content">
+            <span class="selection-instructions">Click bookmarks to select • Drag to move</span>
+            <span class="selection-count" id="selectionCount">0 selected</span>
+        </div>
+        <button class="selection-bar-btn selection-delete" id="selectionDelete" disabled>Delete</button>
+        <button class="selection-bar-btn selection-cancel" id="selectionCancel">Cancel</button>
+        <button class="selection-bar-btn selection-done" id="selectionDone">Done</button>
+    </div>
+
+    <!-- ==================== SUBSCRIPTION UI COMPONENTS ==================== -->
+
+    <!-- Trial Badge (top-right, shows days remaining) -->
+    <div class="trial-badge hidden" id="trialBadge">
+        <span class="trial-icon">⏱️</span>
+        <span class="trial-text">Trial: <span id="trialDays">30</span> days</span>
+    </div>
+
+    <!-- Trial Period Banner (dismissible, top of page) -->
+    <div class="trial-banner hidden" id="trialBanner">
+        <span class="trial-banner-text">
+            You're on a free trial • <span id="trialBannerDays">30</span> days remaining
+        </span>
+        <button class="trial-banner-dismiss" id="trialBannerDismiss" title="Dismiss">✕</button>
+    </div>
+
+    <!-- Trial Ending Soon Warning Banner (dismissible for 24h) -->
+    <div class="trial-warning-banner hidden" id="trialWarningBanner">
+        <span class="trial-warning-icon">⚠️</span>
+        <span class="trial-warning-text">
+            Your trial ends in <span id="trialWarningDays">3</span> days! Subscribe now to keep your bookmarks.
+        </span>
+        <button class="trial-warning-btn" id="trialWarningManageBtn">Subscribe Now</button>
+        <button class="trial-warning-dismiss" id="trialWarningDismiss" title="Dismiss for today">✕</button>
+    </div>
+
+    <!-- Grace Period Banner (top, red warning) -->
+    <div class="grace-banner hidden" id="graceBanner">
+        <span class="grace-icon">⚠️</span>
+        <span class="grace-text">Your trial has ended. Subscribe to keep access.</span>
+        <span class="grace-countdown">You will lose access in <strong id="graceDays">7</strong> days</span>
+        <button class="grace-subscribe-btn" id="graceSubscribeBtn">Subscribe Now</button>
+    </div>
+
+    <!-- Expired Overlay (blocks UI, shows pricing) -->
+    <div class="expired-overlay hidden" id="expiredOverlay">
+        <div class="expired-modal">
+            <div class="expired-header">
+                <img class="expired-logo" src="icons/logo.png" alt="LumiList Logo">
+                <span class="expired-label" id="expiredOverlayLabel">Pricing</span>
+                <h2 class="expired-title" id="expiredOverlayTitle">Unlock LumiList Premium</h2>
+                <p class="expired-subtitle" id="expiredOverlaySubtitle">Organize your bookmarks beautifully</p>
+            </div>
+
+            <div class="expired-recovery-panel hidden" id="expiredRecoveryPanel">
+                <p class="expired-recovery-copy" id="expiredRecoveryCopy">
+                    Your existing LumiList subscription needs a payment method update before premium access can
+                    continue.
+                </p>
+                <button class="expired-recovery-btn" id="expiredRecoveryBtn">Fix Payment Method</button>
+            </div>
+
+            <div class="pricing-cards" id="expiredPricingCards">
+                <div class="pricing-card" data-plan="monthly">
+                    <div class="plan-name">Monthly</div>
+                    <div class="price">$4<span>/month</span></div>
+                    <div class="per-month">Billed monthly</div>
+                    <div class="features">
+                        <div class="feature"><span class="feature-icon">✓</span><span>Thousands of bookmarks</span>
+                        </div>
+                        <div class="feature"><span class="feature-icon">✓</span><span>Cloud sync across devices</span>
+                        </div>
+                        <div class="feature"><span class="feature-icon">✓</span><span>Quick save shortcut</span></div>
+                    </div>
+                    <button class="subscribe-btn" data-plan="monthly">Subscribe Monthly</button>
+                </div>
+                <div class="pricing-card recommended" data-plan="yearly">
+                    <div class="badge">Save 37%</div>
+                    <div class="plan-name">Yearly</div>
+                    <div class="price">$30<span>/year</span></div>
+                    <div class="per-month">$2.50/month</div>
+                    <div class="features">
+                        <div class="feature"><span class="feature-icon">✓</span><span>Everything in Monthly</span></div>
+                        <div class="feature"><span class="feature-icon">✓</span><span>4 months free</span></div>
+                        <div class="feature"><span class="feature-icon">✓</span><span>Priority support</span></div>
+                    </div>
+                    <button class="subscribe-btn" data-plan="yearly">Subscribe Yearly</button>
+                </div>
+            </div>
+
+            <div class="expired-footer">
+                <button type="button" class="expired-delete-link" id="expiredDeleteAccountBtn">
+                    Don't want to continue? Delete your account
+                </button>
+
+                <button type="button" class="expired-logout-btn" id="expiredLogoutBtn">
+                    Log out
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== END SUBSCRIPTION UI ==================== -->
+
+    <!-- Trash Modal -->
+    <div class="modal-overlay" id="trashModal">
+        <div class="modal trash-modal">
+            <div class="trash-modal-header">
+                <h3><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <line x1="10" y1="11" x2="10" y2="17" />
+                        <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>Trash</h3>
+                <span class="trash-retention-notice">Items are permanently deleted after 30 days</span>
+            </div>
+
+            <div class="trash-content">
+                <!-- Empty state -->
+                <div class="trash-empty-state" id="trashEmptyState">
+                    <div class="trash-empty-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48"
+                            height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" />
+                            <line x1="14" y1="11" x2="14" y2="17" />
+                        </svg></div>
+                    <p>Trash is empty</p>
+                </div>
+
+                <!-- Trash list (populated by JS) -->
+                <div class="trash-list" id="trashList" style="display: none;"></div>
+            </div>
+
+            <div class="modal-buttons trash-modal-buttons">
+                <button type="button" class="btn btn-danger" id="emptyTrashBtn" style="display: none;">
+                    Empty Trash
+                </button>
+                <button type="button" class="btn btn-secondary" id="closeTrashBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Screen (shown when not authenticated) -->
+    <div class="welcome-screen hidden" id="welcomeScreen">
+        <div class="welcome-background">
+            <div class="welcome-overlay"></div>
+        </div>
+
+        <div class="welcome-card">
+            <div class="welcome-accent-bar"></div>
+            <h1>Welcome to LumiList</h1>
+            <p>Start organizing your bookmarks beautifully.</p>
+            <div class="welcome-notice hidden" id="welcomeNotice" role="status" aria-live="polite" aria-atomic="true"></div>
+
+            <!-- Syncing state (replaces button during OAuth) -->
+            <div class="welcome-syncing hidden" id="welcomeSyncing">
+                <div class="syncing-spinner"></div>
+                <span>Syncing please wait</span>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal for adding new pages -->
+    <div class="modal-overlay" id="addPageModal">
+        <div class="modal">
+            <h3>Add New Page</h3>
+            <form id="addPageForm">
+                <div class="form-group">
+                    <label for="pageName">Page Name *</label>
+                    <input type="text" id="pageName" name="name" required placeholder="Enter page name...">
+                </div>
+
+                <div class="form-group">
+                    <label for="pagePassword">Password (Optional)</label>
+                    <input type="password" id="pagePassword" name="password" placeholder="Set a password to lock this page...">
+                    <p class="form-help-text">If set, you'll need this password to access the page.</p>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelPageBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Page</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <!-- Modern Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal settings-modal-glass">
+            <div class="settings-container">
+                <!-- Sidebar -->
+                <div class="settings-sidebar">
+                    <div class="settings-sidebar-header">
+                        <h3>Settings</h3>
+                    </div>
+                    <nav class="settings-nav">
+                        <button class="settings-nav-item active" data-tab="general">
+                            <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            General
+                        </button>
+                        <button class="settings-nav-item" data-tab="security">
+                            <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Security
+                        </button>
+                        <button class="settings-nav-item" data-tab="support">
+                            <svg class="settings-icon" viewBox="0 0 24 24" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" clip-rule="evenodd"
+                                    d="M8 9V13.017C8 15.2261 9.79086 17.017 12 17.017C14.2091 17.017 16 15.2261 16 13.017V9H8Z"
+                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                    stroke-linejoin="round" />
+                                <path
+                                    d="M9.25 9C9.25 9.41421 9.58579 9.75 10 9.75C10.4142 9.75 10.75 9.41421 10.75 9H9.25ZM13.25 9C13.25 9.41421 13.5858 9.75 14 9.75C14.4142 9.75 14.75 9.41421 14.75 9H13.25ZM12.75 13.017C12.75 12.6028 12.4142 12.267 12 12.267C11.5858 12.267 11.25 12.6028 11.25 13.017H12.75ZM11.25 17.034C11.25 17.4482 11.5858 17.784 12 17.784C12.4142 17.784 12.75 17.4482 12.75 17.034H11.25ZM5 12.267C4.58579 12.267 4.25 12.6028 4.25 13.017C4.25 13.4312 4.58579 13.767 5 13.767V12.267ZM8 13.767C8.41421 13.767 8.75 13.4312 8.75 13.017C8.75 12.6028 8.41421 12.267 8 12.267V13.767ZM6.53205 6.45839C6.2401 6.16455 5.76523 6.16301 5.47139 6.45495C5.17755 6.7469 5.17601 7.22177 5.46795 7.51561L6.53205 6.45839ZM7.46795 9.52861C7.7599 9.82245 8.23477 9.82399 8.52861 9.53205C8.82245 9.2401 8.82399 8.76523 8.53205 8.47139L7.46795 9.52861ZM9.70345 16.3862C9.99572 16.0927 9.99472 15.6178 9.70121 15.3255C9.40769 15.0333 8.93282 15.0343 8.64055 15.3278L9.70345 16.3862ZM6.51955 17.4578C6.22728 17.7513 6.22828 18.2262 6.52179 18.5185C6.81531 18.8107 7.29018 18.8097 7.58245 18.5162L6.51955 17.4578ZM19 13.767C19.4142 13.767 19.75 13.4312 19.75 13.017C19.75 12.6028 19.4142 12.267 19 12.267V13.767ZM16 12.267C15.5858 12.267 15.25 12.6028 15.25 13.017C15.25 13.4312 15.5858 13.767 16 13.767V12.267ZM18.532 7.51561C18.824 7.22177 18.8224 6.7469 18.5286 6.45495C18.2348 6.16301 17.7599 6.16455 17.468 6.45839L18.532 7.51561ZM15.468 8.47139C15.176 8.76523 15.1776 9.2401 15.4714 9.53205C15.7652 9.82399 16.2401 9.82245 16.532 9.52861L15.468 8.47139ZM15.3595 15.3278C15.0672 15.0343 14.5923 15.0333 14.2988 15.3255C14.0053 15.6178 14.0043 16.0927 14.2965 16.3862L15.3595 15.3278ZM16.4175 18.5162C16.7098 18.8097 17.1847 18.8107 17.4782 18.5185C17.7717 18.2262 17.7727 17.7513 17.4805 17.4578L16.4175 18.5162ZM10.75 9V8H9.25V9H10.75ZM10.75 8C10.75 7.30964 11.3096 6.75 12 6.75V5.25C10.4812 5.25 9.25 6.48122 9.25 8H10.75ZM12 6.75C12.6904 6.75 13.25 7.30964 13.25 8H14.75C14.75 6.48122 13.5188 5.25 12 5.25V6.75ZM13.25 8V9H14.75V8H13.25ZM11.25 13.017V17.034H12.75V13.017H11.25ZM5 13.767H8V12.267H5V13.767ZM5.46795 7.51561L7.46795 9.52861L8.53205 8.47139L6.53205 6.45839L5.46795 7.51561ZM8.64055 15.3278L6.51955 17.4578L7.58245 18.5162L9.70345 16.3862L8.64055 15.3278ZM19 12.267H16V13.767H19V12.267ZM17.468 6.45839L15.468 8.47139L16.532 9.52861L18.532 7.51561L17.468 6.45839ZM14.2965 16.3862L16.4175 18.5162L17.4805 17.4578L15.3595 15.3278L14.2965 16.3862Z"
+                                    fill="currentColor" />
+                            </svg>
+                            Support
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Content -->
+                <div class="settings-content">
+                    <button type="button" id="closeSettingsBtn" class="settings-close-btn">&times;</button>
+
+                    <!-- General Tab -->
+                    <div class="settings-tab-pane active" id="settingsGeneralTab">
+                        <h2 class="settings-pane-title">General Settings</h2>
+
+                        <div class="settings-group-card">
+                            <h4 class="settings-subtitle">Appearance</h4>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Compact mode</span>
+                                    <span class="toggle-label-description">Reduce spacing to show more bookmarks</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="compactModeToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="quick-save-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Font color</span>
+                                    <span class="toggle-label-description">Change the board and bookmark text color</span>
+                                </div>
+                                <div class="color-setting-control">
+                                    <input type="color" id="fontColorInput" class="setting-color-input" aria-label="Font color">
+                                    <span id="fontColorValue" class="setting-color-value" aria-live="polite">#ffffff</span>
+                                    <button type="button" class="setting-btn" id="resetFontColorBtn">Default</button>
+                                </div>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Group right-side tools</span>
+                                    <span class="toggle-label-description">Keep Search and Settings visible, and group the
+                                        other right-side buttons into one menu on this device.</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="floatingControlsCollapsedToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Usage Tracking Insights</span>
+                                    <span class="toggle-label-description">Show bookmark usage data and insights in the tools rail</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="usageTrackingToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Hide extra bookmarks in long boards</span>
+                                    <span class="toggle-label-description">Automatically hides extra bookmarks in long
+                                        boards.</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="largeBoardCollapseToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="quick-save-setting" id="largeBoardVisibleLimitSetting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Visible bookmarks before hide</span>
+                                    <span class="toggle-label-description">Choose how many bookmarks are shown before
+                                        hiding the rest</span>
+                                </div>
+                                <select id="largeBoardVisibleLimitSelect" class="setting-select">
+                                    <option value="5">5</option>
+                                    <option value="10">10</option>
+                                    <option value="15">15</option>
+                                    <option value="20">20</option>
+                                    <option value="25">25</option>
+                                    <option value="30">30</option>
+                                    <option value="40">40</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Show clock</span>
+                                    <span class="toggle-label-description">Show a live clock in Dhaka, Bangladesh time on
+                                        your screen</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="showClockToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Shorten long titles</span>
+                                    <span class="toggle-label-description">Show titles on one line with "..."</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="truncateTitlesToggle" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="settings-group-card">
+                            <h4 class="settings-subtitle">Behavior</h4>
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Open links in new tab</span>
+                                    <span class="toggle-label-description">Open bookmarks in a new browser tab</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="openInNewTabToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Smart Folders</span>
+                                    <span class="toggle-label-description">Auto-categorize bookmarks by domain or keywords</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="smartFoldersToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Tagging System</span>
+                                    <span class="toggle-label-description">Enable tag suggestions for bookmarks</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="taggingToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Advanced Search</span>
+                                    <span class="toggle-label-description">Search by title, URL, tags, and description</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="advancedSearchToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Fuzzy Search</span>
+                                    <span class="toggle-label-description">Handle typos and approximate matches</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="fuzzySearchToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Sort by Recently Used</span>
+                                    <span class="toggle-label-description">Show latest visited bookmarks first</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="recentlyUsedToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Sort by Frequently Used</span>
+                                    <span class="toggle-label-description">Show most visited bookmarks first</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="frequentlyUsedToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Pin Favorites</span>
+                                    <span class="toggle-label-description">Move pinned bookmarks to the top</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="pinFavoritesToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Show bookmark descriptions</span>
+                                    <span class="toggle-label-description">Display saved descriptions below bookmark
+                                        titles</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="showBookmarkNotesToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Close tabs after Save All Tabs</span>
+                                    <span class="toggle-label-description">Automatically close the saved tabs in the
+                                        current window</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="closeTabsAfterSaveAllToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="quick-save-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Quick Save destination</span>
+                                    <span class="toggle-label-description">Where to save new links</span>
+                                </div>
+                                <select id="settingsQuickSavePage" class="setting-select">
+                                    <option value="current">Current Page</option>
+                                </select>
+                            </div>
+
+                            <div class="quick-save-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Change quick save shortcut</span>
+                                    <span class="toggle-label-description" id="settingsQuickSaveShortcutNote">Open
+                                        browser shortcut settings to change this key.</span>
+                                </div>
+                                <div class="shortcut-setting">
+                                    <kbd class="setting-kbd" id="settingsQuickSaveShortcutValue">Loading...</kbd>
+                                    <button type="button" class="setting-btn"
+                                        id="settingsChangeShortcutBtn">Change</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Tab -->
+                    <div class="settings-tab-pane" id="settingsSecurityTab">
+                        <h2 class="settings-pane-title">Security & Privacy</h2>
+                        <div class="settings-group-card">
+                            <h4 class="settings-subtitle">Lock Page</h4>
+                            <div class="settings-section">
+                                <p class="settings-help-text">Select a page and set a password to restrict access to it.</p>
+                                <div class="quick-save-setting">
+                                    <div class="toggle-label">
+                                        <span class="toggle-label-title">Select Page</span>
+                                    </div>
+                                    <select id="lockPageSelect" class="setting-select">
+                                        <!-- Will be populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="quick-save-setting">
+                                    <div class="toggle-label">
+                                        <!-- If you Need Enter The Test Password  -->
+                                        <span class="toggle-label-title"></span>
+                                    </div>
+                                    <input type="password" id="lockPagePasswordInput" class="modal-input" placeholder="Enter password...">
+                                </div>
+                                <button type="button" class="btn btn-primary" id="lockPageBtn" style="width: 100%; margin-top: 10px;">
+                                    Lock Selected Page
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="settings-group-card" id="lockedPagesSection" style="display: none;">
+                            <h4 class="settings-subtitle">Locked Pages</h4>
+                            <div id="lockedPagesList" class="settings-section">
+                                <!-- Will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Support Tab -->
+                    <div class="settings-tab-pane" id="settingsSupportTab">
+                        <h2 class="settings-pane-title">Support</h2>
+                        <div class="settings-group-card">
+                            <div class="settings-section">
+                                <div class="settings-section-title">Contact</div>
+                                <p class="settings-help-text">
+                                    Have a question or feedback? Email us anytime at
+                                    <a href="mailto:prantoislamnt51@gmail.com"
+                                        class="settings-contact-link">prantoislamnt51@gmail.com</a>
+                                </p>
+                                <a class="btn btn-secondary settings-support-button" href="mailto:prantoislamnt51@gmail.com">
+                                    Contact Us
+                                </a>
+                                <p class="settings-about-meta" id="settingsVersionRow" hidden>
+                                    <span id="settingsVersionText"></span>
+                                </p>
+                            </div>
+
+                            <div class="settings-section">
+                                <div class="settings-section-title">Developer</div>
+                                <p class="settings-help-text" style="margin-bottom: 8px;">
+                                    <strong>Md.Pranto Islam</strong>
+                                </p>
+                                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                    <a href="https://www.facebook.com/md.pranto.islam.140" target="_blank"
+                                        class="settings-contact-link">Facebook</a>
+                                    <a href="https://www.instagram.com/pranto.dev/" target="_blank"
+                                        class="settings-contact-link">Instagram</a>
+                                    <a href="https://github.com/pranto2050" target="_blank"
+                                        class="settings-contact-link">GitHub</a>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <div class="settings-report-intro">
+                                    <div class="settings-report-icon-badge" aria-hidden="true">
+                                        <svg class="settings-report-icon" viewBox="0 0 24 24" fill="none"
+                                            xmlns="http://www.w3.org/2000/svg">
+                                            <path fill-rule="evenodd" clip-rule="evenodd"
+                                                d="M8 9V13.017C8 15.2261 9.79086 17.017 12 17.017C14.2091 17.017 16 15.2261 16 13.017V9H8Z"
+                                                stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                                stroke-linejoin="round" />
+                                            <path
+                                                d="M9.25 9C9.25 9.41421 9.58579 9.75 10 9.75C10.4142 9.75 10.75 9.41421 10.75 9H9.25ZM13.25 9C13.25 9.41421 13.5858 9.75 14 9.75C14.4142 9.75 14.75 9.41421 14.75 9H13.25ZM12.75 13.017C12.75 12.6028 12.4142 12.267 12 12.267C11.5858 12.267 11.25 12.6028 11.25 13.017H12.75ZM11.25 17.034C11.25 17.4482 11.5858 17.784 12 17.784C12.4142 17.784 12.75 17.4482 12.75 17.034H11.25ZM5 12.267C4.58579 12.267 4.25 12.6028 4.25 13.017C4.25 13.4312 4.58579 13.767 5 13.767V12.267ZM8 13.767C8.41421 13.767 8.75 13.4312 8.75 13.017C8.75 12.6028 8.41421 12.267 8 12.267V13.767ZM6.53205 6.45839C6.2401 6.16455 5.76523 6.16301 5.47139 6.45495C5.17755 6.7469 5.17601 7.22177 5.46795 7.51561L6.53205 6.45839ZM7.46795 9.52861C7.7599 9.82245 8.23477 9.82399 8.52861 9.53205C8.82245 9.2401 8.82399 8.76523 8.53205 8.47139L7.46795 9.52861ZM9.70345 16.3862C9.99572 16.0927 9.99472 15.6178 9.70121 15.3255C9.40769 15.0333 8.93282 15.0343 8.64055 15.3278L9.70345 16.3862ZM6.51955 17.4578C6.22728 17.7513 6.22828 18.2262 6.52179 18.5185C6.81531 18.8107 7.29018 18.8097 7.58245 18.5162L6.51955 17.4578ZM19 13.767C19.4142 13.767 19.75 13.4312 19.75 13.017C19.75 12.6028 19.4142 12.267 19 12.267V13.767ZM16 12.267C15.5858 12.267 15.25 12.6028 15.25 13.017C15.25 13.4312 15.5858 13.767 16 13.767V12.267ZM18.532 7.51561C18.824 7.22177 18.8224 6.7469 18.5286 6.45495C18.2348 6.16301 17.7599 6.16455 17.468 6.45839L18.532 7.51561ZM15.468 8.47139C15.176 8.76523 15.1776 9.2401 15.4714 9.53205C15.7652 9.82399 16.2401 9.82245 16.532 9.52861L15.468 8.47139ZM15.3595 15.3278C15.0672 15.0343 14.5923 15.0333 14.2988 15.3255C14.0053 15.6178 14.0043 16.0927 14.2965 16.3862L15.3595 15.3278ZM16.4175 18.5162C16.7098 18.8097 17.1847 18.8107 17.4782 18.5185C17.7717 18.2262 17.7727 17.7513 17.4805 17.4578L16.4175 18.5162ZM10.75 9V8H9.25V9H10.75ZM10.75 8C10.75 7.30964 11.3096 6.75 12 6.75V5.25C10.4812 5.25 9.25 6.48122 9.25 8H10.75ZM12 6.75C12.6904 6.75 13.25 7.30964 13.25 8H14.75C14.75 6.48122 13.5188 5.25 12 5.25V6.75ZM13.25 8V9H14.75V8H13.25ZM11.25 13.017V17.034H12.75V13.017H11.25ZM5 13.767H8V12.267H5V13.767ZM5.46795 7.51561L7.46795 9.52861L8.53205 8.47139L6.53205 6.45839L5.46795 7.51561ZM8.64055 15.3278L6.51955 17.4578L7.58245 18.5162L9.70345 16.3862L8.64055 15.3278ZM19 12.267H16V13.767H19V12.267ZM17.468 6.45839L15.468 8.47139L16.532 9.52861L18.532 7.51561L17.468 6.45839ZM14.2965 16.3862L16.4175 18.5162L17.4805 17.4578L15.3595 15.3278L14.2965 16.3862Z"
+                                                fill="currentColor" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="settings-section-title">Found an issue?</div>
+                                        <p class="settings-about-text">
+                                            Help us fix it quickly by sending a clear bug report.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-section">
+                                <div class="settings-section-title">What to include</div>
+                                <ul class="settings-about-list">
+                                    <li>What you expected to happen.</li>
+                                    <li>What actually happened.</li>
+                                    <li>Steps to reproduce the issue.</li>
+                                    <li>Your browser and OS details.</li>
+                                </ul>
+                            </div>
+
+                            <div class="settings-section">
+                                <button class="btn btn-secondary" id="reportBugBtn" style="width: 100%;">Open Bug
+                                    Report Form</button>
+                                <p class="settings-help-text">This opens a pre-filled issue template.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Chrome Bookmarks Modal -->
+    <div class="modal-overlay" id="importChromeModal">
+        <div class="modal" style="max-width: 500px;">
+            <h3>Import Chrome Bookmarks</h3>
+            <p style="color: var(--ll-text-faint); margin-bottom: 16px;">Select folders to import as boards on the
+                current page:</p>
+            <div id="chromeImportPreview" class="import-folder-list">
+                <!-- Folder list will be populated here -->
+            </div>
+            <div id="chromeImportProgress" style="display: none;">
+                <div class="import-progress-container">
+                    <div class="import-progress-bar" id="importProgressBar"></div>
+                </div>
+                <p class="import-status" id="importStatusText">Importing...</p>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="cancelChromeImportBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmChromeImportBtn">Import Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fetch Titles Progress Modal -->
+    <div class="modal-overlay" id="fetchTitlesModal">
+        <div class="modal fetch-titles-modal">
+            <h3>Fetching titles, please wait</h3>
+            <p class="fetch-titles-subtitle" id="fetchTitlesStatusText">0 of 0 links processed</p>
+            <div class="import-progress-container">
+                <div class="import-progress-bar" id="fetchTitlesProgressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Links Progress Modal -->
+    <div class="modal-overlay" id="importLinksProgressModal">
+        <div class="modal fetch-titles-modal">
+            <h3 id="importLinksProgressTitle">Importing links</h3>
+            <p class="fetch-titles-subtitle" id="importLinksProgressStatusText">Starting...</p>
+            <div class="import-progress-container">
+                <div class="import-progress-bar" id="importLinksProgressBar"></div>
+            </div>
+            <div class="modal-buttons" style="margin-top: 14px;">
+                <button type="button" class="btn btn-secondary" id="cancelImportLinksProgressBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Undo/Redo Chunked Sync Progress Modal -->
+    <div class="modal-overlay" id="undoRedoProgressModal">
+        <div class="modal undo-redo-progress-modal">
+            <h3 id="undoRedoProgressTitle">Please wait</h3>
+            <p class="undo-redo-progress-subtitle" id="undoRedoProgressStatusText">Preparing changes...</p>
+            <div class="import-progress-container">
+                <div class="import-progress-bar" id="undoRedoProgressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Onboarding Modal -->
+    <div class="modal-overlay" id="onboardingModal">
+        <div class="onboarding-glass">
+            <!-- Hero Icon: LumiList Logo -->
+            <svg class="onboarding-icon" width="42" height="42" viewBox="0 0 400 400" version="1.1"
+                xmlns="http://www.w3.org/2000/svg"
+                style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+                <g transform="matrix(5.950643,0,0,5.950643,-75225.663936,-38381.416636)">
+                    <g transform="matrix(0,-0.86179,1.737264,0,-7587.633419,18354.730325)">
+                        <path class="onboarding-icon-sheet"
+                            d="M13775,11663.654L13775,11683L13736,11683L13736,11644.307L13814,11644.307L13814,11663.654L13775,11663.654Z" />
+                    </g>
+                    <g transform="matrix(0.430895,0,-0,0.925405,6773.243337,-4327.939651)">
+                        <path class="onboarding-icon-corner"
+                            d="M13697,11646.681L13775,11646.681L13775,11683L13697,11646.681Z" />
+                    </g>
+                </g>
+            </svg>
+
+            <h1 class="onboarding-title">Welcome to LumiList!</h1>
+
+            <!-- Trial Badge -->
+            <!-- <div class="onboarding-trial-badge">Your 30-day free trial has started</div> -->
+
+            <!-- <p class="onboarding-subtitle">After trial: $4/mo or $30/yr (save 37%)
+            </p> -->
+
+            <!-- Quick Tips -->
+            <div class="onboarding-tips">
+                <div class="onboarding-tips-header">QUICK TIPS</div>
+
+                <!-- Tip 1: Quick Save -->
+                <div class="onboarding-tip-item">
+                    <div class="onboarding-tip-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="onboarding-tip-title">Quick Save: <span class="kbd-shortcut"
+                                id="quickSaveShortcut">Cmd+Shift+Y</span></div>
+                        <div class="onboarding-tip-desc">Save any page instantly</div>
+                    </div>
+                </div>
+
+                <!-- Tip 2: Double-click -->
+                <div class="onboarding-tip-item">
+                    <div class="onboarding-tip-icon">
+                        <svg width="14" height="14" viewBox="0 0 512 512" version="1.1"
+                            xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M0 0 C2.20785075 1.58760596 4.39115009 3.20348698 6.56713867 4.83447266 C7.37046631 5.43098633 8.17379395 6.0275 9.00146484 6.64208984 C16.13719926 11.95694376 23.20058444 17.3666012 30.26538086 22.77514648 C35.5926017 26.84375453 40.97061495 30.81273203 46.45043945 34.67236328 C51.51970094 38.25624082 56.48261986 41.97564728 61.44213867 45.70947266 C68.0436801 50.67939733 74.6611533 55.62514794 81.31713867 60.52197266 C82.48744629 61.38302612 82.48744629 61.38302612 83.68139648 62.26147461 C86.03864664 63.99481844 88.39651713 65.72731453 90.75463867 67.45947266 C101.29970558 75.20535133 111.8128291 82.9896352 122.27172852 90.8515625 C131.87052812 98.06046452 141.54295286 105.16880982 151.22192383 112.26953125 C161.1533001 119.55591655 171.05547608 126.86511367 180.75463867 134.45947266 C182.05788086 135.44367188 182.05788086 135.44367188 183.38745117 136.44775391 C191.15068086 143.04521808 197.34359684 154.35413268 198.75463867 164.45947266 C199.78742823 179.78585157 198.40055295 193.34488358 189.75463867 206.45947266 C189.27510742 207.19681641 188.79557617 207.93416016 188.30151367 208.69384766 C179.69327373 220.81224369 166.53919066 228.24492289 152.10174561 231.06401062 C145.30006026 231.86763249 138.4458257 231.46213764 131.61224937 231.27538872 C126.70010551 231.15487211 121.78704913 231.11435857 116.8737793 231.06298828 C110.6504696 230.99724081 104.4315966 230.90697324 98.2109375 230.70874023 C74.90965444 228.56006118 74.90965444 228.56006118 54.31616211 236.43774414 C51.24202443 240.35162827 49.28772934 244.5118553 47.6177063 249.18051147 C46.47211019 252.20549929 44.77181412 254.57252318 42.80932617 257.12744141 C42.00978516 258.26536133 42.00978516 258.26536133 41.1940918 259.42626953 C40.67782227 260.15910156 40.16155273 260.89193359 39.62963867 261.64697266 C35.47429167 267.5640761 31.34125282 273.49469388 27.25463867 279.45947266 C25.9159524 281.40801322 24.57647995 283.35601008 23.23657227 285.30371094 C22.17313167 286.8506929 21.11112444 288.39866057 20.05004883 289.94726562 C18.2285744 292.60147032 16.39856258 295.24962591 14.56713867 297.89697266 C14.00897461 298.71359375 13.45081055 299.53021484 12.87573242 300.37158203 C3.54616379 313.80747488 -7.45270126 325.37090439 -24.24536133 328.45947266 C-41.71883145 330.37257591 -56.73039807 327.30226124 -70.80395508 316.49462891 C-82.49844187 306.65132419 -90.20034763 293.38139206 -91.79316711 278.0848999 C-92.59906928 268.58985964 -92.39318722 259.04020299 -92.390625 249.51904297 C-92.39362057 247.29548079 -92.39702402 245.07191914 -92.40080261 242.84835815 C-92.40960601 236.83166255 -92.41197918 230.81498119 -92.4126184 224.79827976 C-92.41333095 221.0329861 -92.41546915 217.26769603 -92.41811562 213.50240326 C-92.42688067 201.02641949 -92.43153683 188.55044376 -92.43078514 176.07445756 C-92.43074519 175.40358285 -92.43070523 174.73270815 -92.43066406 174.04150391 C-92.43062318 173.36979891 -92.4305823 172.69809392 -92.43054018 172.00603423 C-92.43013397 161.12722159 -92.43970028 150.2484436 -92.45380243 139.36964098 C-92.46820791 128.16740665 -92.4748877 116.96518496 -92.47420865 105.76294017 C-92.47395455 99.48656965 -92.47675906 93.21023838 -92.4873867 86.93387604 C-92.49711586 81.02735609 -92.497114 75.12091255 -92.48987007 69.2143898 C-92.48883022 67.05662804 -92.49115116 64.89886139 -92.49723053 62.74110794 C-92.55729461 39.93068175 -91.38724697 20.96640518 -75.22192383 3.24072266 C-54.0382787 -17.23417598 -23.06190053 -15.82261524 0 0 Z M-48.55786133 35.89697266 C-51.92663216 41.01251355 -51.39172437 46.73513496 -51.38580322 52.65594482 C-51.38877434 53.58491679 -51.39174547 54.51388876 -51.39480662 55.4710114 C-51.40348151 58.58533834 -51.40500085 61.69962678 -51.40649414 64.81396484 C-51.41112315 67.04637738 -51.41614793 69.27878913 -51.42153931 71.51119995 C-51.43465691 77.57743011 -51.44110698 83.6436492 -51.44554996 89.70989132 C-51.4484816 93.5002323 -51.45258657 97.29057027 -51.45705414 101.08090973 C-51.46916098 111.58272008 -51.47954381 122.08452865 -51.48292923 132.58634567 C-51.4831488 133.25802137 -51.48336836 133.92969708 -51.48359458 134.62172659 C-51.48381286 135.29497509 -51.48403114 135.9682236 -51.48425603 136.66187358 C-51.48469949 138.02604723 -51.48514605 139.39022088 -51.4855957 140.75439453 C-51.48581713 141.4310664 -51.48603856 142.10773826 -51.4862667 142.80491534 C-51.49021349 153.76577699 -51.50766521 164.7265721 -51.53095523 175.68740806 C-51.5546935 186.95044449 -51.56687443 198.21344873 -51.56829715 209.4765141 C-51.56934505 215.79640113 -51.5752499 222.11619427 -51.59311676 228.43605804 C-51.60959937 234.38190238 -51.61175191 240.32758227 -51.60297775 246.27344131 C-51.6022075 248.45307226 -51.60654853 250.63271205 -51.616436 252.81232071 C-51.62916398 255.79343088 -51.62327385 258.7739594 -51.612854 261.75506592 C-51.62091041 262.61257596 -51.62896681 263.470086 -51.63726735 264.35358119 C-51.57928257 271.47250432 -50.44498459 277.87491533 -45.74536133 283.39697266 C-42.43945802 286.12434289 -40.28665294 287.77941846 -35.99536133 287.95947266 C-35.26833008 288.01103516 -34.54129883 288.06259766 -33.79223633 288.11572266 C-26.41952765 286.21600631 -22.09699553 278.84248831 -18.18286133 272.83447266 C-17.04993179 271.13706652 -15.91577562 269.44047858 -14.78051758 267.74462891 C-14.20060059 266.87338379 -13.62068359 266.00213867 -13.02319336 265.10449219 C-10.11843947 260.78286302 -7.11858787 256.52903433 -4.12036133 252.27197266 C0.03501138 246.35490395 4.16873293 240.4247288 8.25463867 234.45947266 C14.1757853 225.8210195 20.16890096 217.23372459 26.20092773 208.67236328 C27.55910344 206.73796595 28.90524138 204.79600999 30.24682617 202.85009766 C30.9300293 201.87556641 31.61323242 200.90103516 32.31713867 199.89697266 C32.87530273 199.09130859 33.4334668 198.28564453 34.00854492 197.45556641 C37.00836455 194.0262424 40.34655557 192.35409459 44.75463867 191.45947266 C46.17532184 191.37111835 47.59947759 191.33061554 49.02290344 191.32817078 C49.86811554 191.3241626 50.71332764 191.32015442 51.58415222 191.31602478 C52.50319839 191.3165535 53.42224457 191.31708221 54.36914062 191.31762695 C55.34359131 191.31415253 56.31804199 191.3106781 57.32202148 191.30709839 C59.43747195 191.29974921 61.55293009 191.29439936 63.66839027 191.29080772 C67.01858891 191.28363646 70.36864158 191.26796495 73.71879578 191.24946594 C83.2439881 191.19702629 92.76909999 191.14901807 102.29443359 191.13354492 C108.12175004 191.12345835 113.9486984 191.09411737 119.77586937 191.05222511 C121.99455162 191.03992117 124.21328587 191.03479274 126.43200111 191.03702354 C129.53905083 191.03937892 132.64504603 191.01719144 135.75195312 190.98950195 C136.66492661 190.99610336 137.57790009 191.00270477 138.51853943 191.00950623 C144.4354708 190.92309098 147.89444949 189.88515137 152.75463867 186.45947266 C156.14913432 182.70766168 157.90606045 180.19126443 158.06713867 175.14697266 C158.10452148 174.38771484 158.1419043 173.62845703 158.18041992 172.84619141 C157.00720945 166.26975475 150.25305061 162.64244765 145.19213867 159.02197266 C143.46940053 157.77078331 141.74674657 156.51947806 140.02416992 155.26806641 C139.14583496 154.63368652 138.2675 153.99930664 137.36254883 153.34570312 C133.3531315 150.44580065 129.36463687 147.51780414 125.37963867 144.58447266 C124.60587891 144.01575439 123.83211914 143.44703613 123.03491211 142.86108398 C116.95271078 138.37686553 110.94163144 133.80353318 104.94213867 129.20947266 C98.71996724 124.44538533 92.46553051 119.75903878 86.05883789 115.24658203 C80.9895764 111.66270449 76.02665749 107.94329803 71.06713867 104.20947266 C64.4655958 99.2395469 57.84803773 94.29391611 51.19213867 89.39697266 C50.4112085 88.82221191 49.63027832 88.24745117 48.82568359 87.65527344 C44.91298942 84.77742485 40.99697992 81.9041438 37.07885742 79.03369141 C28.63584115 72.8402137 20.25588028 66.57569657 11.94213867 60.20947266 C5.11072209 54.97855939 -1.77901341 49.87235828 -8.81176758 44.91650391 C-13.65046457 41.48485472 -18.36919595 37.88988913 -23.09423828 34.30419922 C-32.21205276 27.40670227 -40.33371577 27.22827869 -48.55786133 35.89697266 Z "
+                                fill="currentColor" transform="translate(285.245361328125,183.54052734375)" />
+                            <path
+                                d="M0 0 C10.2846159 9.05245718 19.8678832 18.57962903 28.1875 29.5 C28.62497559 30.06154785 29.06245117 30.6230957 29.51318359 31.20166016 C47.96123787 55.07448117 60.03259502 83.08359967 66.1875 112.5 C66.35266113 113.28922852 66.51782227 114.07845703 66.68798828 114.89160156 C68.79173843 125.4342833 69.54283776 135.94631958 69.75 146.6875 C69.78907471 147.82195557 69.82814941 148.95641113 69.8684082 150.12524414 C69.89298247 157.83299234 68.37170169 162.71795888 63.1875 168.5 C57.82019269 173.08457499 52.59613559 173.22630365 45.640625 173.01171875 C39.63749614 172.12211481 35.5587794 169.46078741 31.7890625 164.75390625 C27.93981762 158.62514401 28.0508332 151.79453988 27.64379883 144.79516602 C25.03133245 102.27534334 6.89643116 62.24331894 -24.98022461 33.54223633 C-57.3758449 5.45298248 -99.73399879 -8.9521692 -142.5300293 -6.11108398 C-183.79141074 -2.76296255 -223.88985232 16.81958468 -251.1015625 48.203125 C-281.1033889 84.10012401 -291.68915013 126.53090729 -288.61035156 172.51953125 C-288.08484861 177.61988443 -287.108344 182.54299248 -285.8125 187.5 C-285.50650879 188.69206055 -285.50650879 188.69206055 -285.19433594 189.90820312 C-274.35187229 231.03696623 -249.86552339 265.44257226 -213.7578125 287.9921875 C-200.65142728 296.23044091 -200.65142728 296.23044091 -198.8125 302.5 C-197.86593605 309.3399534 -197.65828262 315.60650859 -201.375 321.625 C-205.28184598 326.54744294 -209.48153599 329.27096524 -215.75 330.375 C-222.8994669 330.86473939 -228.8566224 328.34568429 -234.8125 324.625 C-235.44841064 324.23425293 -236.08432129 323.84350586 -236.73950195 323.44091797 C-249.10555755 315.68626676 -260.32964126 306.631478 -270.8125 296.5 C-272.19695312 295.19289063 -272.19695312 295.19289063 -273.609375 293.859375 C-280.76917292 286.94228209 -286.94133947 279.51380915 -292.8125 271.5 C-293.22854492 270.93361816 -293.64458984 270.36723633 -294.07324219 269.78369141 C-318.78481872 235.63625119 -331.29033893 195.08328283 -331.1875 153.125 C-331.18662384 152.2477124 -331.18574768 151.3704248 -331.18484497 150.46655273 C-331.00243917 94.88895819 -308.31136359 45.48075851 -269.16235352 6.54711914 C-258.78624451 -3.52218089 -247.04259756 -11.84042859 -234.8125 -19.5 C-233.91337891 -20.06799316 -233.91337891 -20.06799316 -232.99609375 -20.64746094 C-213.99764302 -32.4753301 -192.58587343 -39.77528323 -170.8125 -44.5 C-170.05420898 -44.67644043 -169.29591797 -44.85288086 -168.51464844 -45.03466797 C-109.90073481 -58.28913656 -44.82170397 -38.63503001 0 0 Z "
+                                fill="currentColor" transform="translate(358.8125,47.5)" />
+                            <path
+                                d="M0 0 C0.68368652 0.20898926 1.36737305 0.41797852 2.07177734 0.63330078 C29.29387752 9.22670436 51.3409179 27.39872158 67 51 C67.57234375 51.79148438 68.1446875 52.58296875 68.734375 53.3984375 C72.95504742 59.77686942 73.20297515 66.55873943 72 74 C69.91912242 79.17288581 66.39500147 83.94044374 61.2421875 86.40234375 C55.05450463 88.05167385 48.3935164 88.23083487 42.33984375 86.03515625 C36.85019774 82.78656641 33.99164573 78.3258209 30.7890625 72.9296875 C20.51973122 56.11309697 3.96119038 44.49622802 -15.0625 39.625 C-37.15749394 34.47890429 -58.77412532 38.05443828 -78.16113281 49.81103516 C-95.14370866 60.7915376 -106.47794596 77.70950685 -112 97.0625 C-116.37085448 119.7738027 -112.09435678 141.32941602 -99.88134766 160.78173828 C-95.97142299 167.07222503 -95.93356329 172.80358741 -97 180 C-98.97021103 184.92900852 -101.91526935 188.60886427 -106.375 191.5 C-113.19516495 194.32213722 -119.0644586 194.73218297 -126 192 C-133.58929182 188.06983102 -136.98558049 181.25053321 -141 174 C-141.54914063 173.01386719 -142.09828125 172.02773437 -142.6640625 171.01171875 C-151.73246511 153.82825842 -155.62338697 135.55784769 -155.4375 116.25 C-155.43379395 115.5537854 -155.43008789 114.8575708 -155.42626953 114.14025879 C-155.19200609 83.09502895 -143.89584727 55.85101427 -123 33 C-122.28328125 32.20078125 -121.5665625 31.4015625 -120.828125 30.578125 C-110.14368876 19.25101591 -97.12754702 11.27973358 -83 5 C-81.93394531 4.51789063 -80.86789063 4.03578125 -79.76953125 3.5390625 C-55.54947712 -6.59099816 -25.06899036 -7.84345059 0 0 Z "
+                                fill="currentColor" transform="translate(263,83)" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="onboarding-tip-title">Double-click board name</div>
+                        <div class="onboarding-tip-desc">Opens all bookmarks in that board</div>
+                    </div>
+                </div>
+
+                <!-- Tip 3: Drag & Drop -->
+                <div class="onboarding-tip-item">
+                    <div class="onboarding-tip-icon">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 9L2 12L5 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M9 5L12 2L15 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M19 9L22 12L19 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M9 19L12 22L15 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M2 12H22" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                            <path d="M12 2V22" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="tip-content">
+                        <div class="onboarding-tip-title">Drag & drop everything</div>
+                        <div class="onboarding-tip-desc">Reorganize bookmarks and boards freely</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="onboarding-actions">
+                <button type="button" class="onboarding-btn-secondary" id="skipOnboardingBtn">Take Quick Tour</button>
+                <button type="button" class="onboarding-btn-primary" id="importOnboardingBtn">Import Bookmarks</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Admin Password Prompt Modal -->
+    <div class="modal-overlay" id="adminPasswordModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>Admin Access Required</h3>
+                <p>Please enter the admin password to access Security & Privacy settings.</p>
+            </div>
+            <form id="adminPasswordForm">
+                <div class="form-group">
+                    <input type="password" id="adminPasswordInput" name="password" required 
+                        placeholder="Enter admin password" autocomplete="current-password">
+                    <p id="adminPasswordError" class="form-error-text hidden">Incorrect password. Access denied.</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelAdminAuthBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Verify</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Page Password Prompt Modal -->
+    <div class="modal-overlay" id="pagePasswordModal">
+        <div class="modal" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3 id="passwordModalTitle">Locked Page</h3>
+                <p id="passwordModalDesc">This page is protected. Please enter the password to access it.</p>
+            </div>
+            <form id="pagePasswordForm">
+                <div class="form-group">
+                    <input type="password" id="accessPagePassword" name="password" required 
+                        placeholder="Enter password" autocomplete="current-password">
+                    <p id="passwordError" class="form-error-text hidden">Incorrect password. Please try again.</p>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="cancelPasswordBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Unlock Page</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div class="modal-overlay" id="shareModal">
+        <div class="modal" style="max-width: 420px;">
+            <h2 id="shareModalTitle">Share Board</h2>
+            <div class="modal-body">
+                <!-- Share Link Section -->
+                <div class="share-section">
+                    <label class="share-label">Share Link</label>
+                    <div class="share-link-container">
+                        <input type="text" id="shareLinkInput" class="share-link-input" readonly>
+                        <button type="button" id="copyShareLinkBtn" class="share-copy-btn" title="Copy link">
+                            <span class="copy-icon">&#128203;</span>
+                        </button>
+                    </div>
+                    <p class="share-hint" style="margin-top: 8px; font-size: 12px; color: var(--ll-text-faint);">Anyone
+                        with this link can view and import a copy of this content.</p>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-danger" id="stopShareBtn">Stop Sharing</button>
+                <button type="button" class="btn btn-secondary" id="closeShareModalBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Shared Content Modal -->
+    <div class="modal-overlay" id="importShareModal">
+        <div class="modal" style="max-width: 420px;">
+            <h2>Import Shared Content</h2>
+            <div class="modal-body">
+                <!-- Content Info -->
+                <div class="import-share-info">
+                    <div class="import-share-type" id="importShareType"></div>
+                    <div class="import-share-title" id="importShareTitle"></div>
+                    <div class="import-share-stats" id="importShareStats"></div>
+                </div>
+
+                <!-- Page Selection (for board imports only) -->
+                <div class="import-share-page-select" id="importSharePageSelectSection">
+                    <label for="importSharePageSelect">Import to page:</label>
+                    <select id="importSharePageSelect" class="import-share-dropdown"></select>
+                </div>
+
+                <!-- Page Import Info -->
+                <div class="import-share-page-info" id="importSharePageInfo" style="display: none;">
+                    <p>This will create a new page with all boards and bookmarks.</p>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="cancelImportShareBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmImportShareBtn">Import</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Confirmation Modal -->
+    <div class="modal-overlay" id="deleteAccountModal">
+        <div class="modal" style="max-width: 420px;">
+            <h2 style="color: var(--ll-danger-strong);">Delete Account</h2>
+            <div class="modal-body">
+                <div
+                    style="background: var(--ll-danger-soft); border: 1px solid var(--ll-danger-border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                    <p style="color: var(--ll-text-primary); margin: 0 0 12px 0; font-weight: 500;">This action is
+                        permanent and cannot be undone.</p>
+                    <p style="color: var(--ll-text-faint); margin: 0; font-size: 13px;">The following will be
+                        permanently deleted:</p>
+                    <ul style="color: var(--ll-text-faint); margin: 8px 0 0 0; padding-left: 20px; font-size: 13px;">
+                        <li>All your pages, boards, and bookmarks</li>
+                        <li>Your account and sync data</li>
+                        <li>Any active subscription (will be cancelled)</li>
+                    </ul>
+                </div>
+                <div style="margin-top: 16px;">
+                    <label for="deleteConfirmInput"
+                        style="display: block; color: var(--ll-text-faint); margin-bottom: 8px; font-size: 13px;">
+                        Type <strong style="color: var(--ll-danger-strong);">DELETE</strong> to confirm:
+                    </label>
+                    <input type="text" id="deleteConfirmInput" class="modal-input" placeholder="Type DELETE here"
+                        autocomplete="off" style="width: 100%; border: 1px solid var(--ll-danger-border);">
+                </div>
+                <p id="deleteAccountError"
+                    style="color: var(--ll-danger-strong); font-size: 13px; margin-top: 8px; display: none;"></p>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="cancelDeleteAccountBtn">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteAccountBtn" disabled
+                    style="background: var(--ll-danger-button-bg); border: 1px solid var(--ll-danger-button-border);">Delete
+                    My
+                    Account</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Links Modal -->
+    <div class="modal-overlay" id="importLinksModal">
+        <div class="modal" style="max-width: 550px;">
+            <h2>Import Links</h2>
+            <div class="modal-body">
+                <!-- Papaly summary (hidden by default) -->
+                <div id="importLinksPapalySummary"
+                    style="display: none; background: var(--ll-surface-6); border: 1px solid var(--ll-border-soft); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+                    <div style="font-weight: 600; margin-bottom: 6px;">Papaly layout detected</div>
+                    <div id="importLinksPapalyCounts" style="font-size: 14px; margin-bottom: 6px;"></div>
+                    <div id="importLinksPapalyHint" style="font-size: 12px; color: var(--ll-text-faint);">We'll keep the
+                        same column placement and
+                        ordering from Papaly.</div>
+                </div>
+
+                <!-- Textarea for paste -->
+                <textarea id="importLinksTextarea" aria-label="Paste URLs, HTML, or any text containing links"
+                    placeholder="Paste URLs, HTML, or any text containing links..." rows="8"
+                    style="width: 100%; box-sizing: border-box; resize: vertical; font-family: inherit; background: var(--ll-surface-6); border: 1px solid var(--ll-border-soft); border-radius: 8px; padding: 12px; color: inherit; font-size: 14px;"></textarea>
+
+                <!-- File selected indicator (hidden by default) -->
+                <div id="importLinksFileIndicator"
+                    style="display: none; background: var(--ll-surface-6); border: 1px solid var(--ll-border-soft); border-radius: 8px; padding: 20px; text-align: center;">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        style="margin-bottom: 8px; color: var(--ll-accent-1);">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <div id="importLinksFileName" style="font-weight: 500; margin-bottom: 4px; word-break: break-all;">
+                    </div>
+                    <div style="font-size: 13px; color: var(--ll-text-faint); margin-bottom: 12px;">Ready to import
+                    </div>
+                    <button type="button" class="btn btn-secondary" id="clearImportFileBtn"
+                        style="font-size: 13px; padding: 6px 12px;">
+                        ✕ Clear file
+                    </button>
+                </div>
+
+                <!-- File upload -->
+                <div id="importLinksUploadRow" style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
+                    <label class="btn btn-secondary"
+                        style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" aria-hidden="true">
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                        </svg>
+                        Upload File
+                        <input type="file" id="importLinksFile" accept=".html,.htm,.json,.csv,.txt,.md"
+                            style="display: none;">
+                    </label>
+                    <span style="color: var(--ll-text-faint); font-size: 13px;">
+                        HTML, JSON, CSV, TXT, MD
+                    </span>
+                </div>
+
+                <!-- Grouping Strategy -->
+                <div id="importLinksGroupingRow" style="margin-top: 16px;">
+                    <label for="importLinksGrouping"
+                        style="font-size: 13px; color: var(--ll-text-faint); display: block; margin-bottom: 10px;">Grouping</label>
+                    <select id="importLinksGrouping" class="import-share-dropdown">
+                        <option value="smart" selected>Smart (auto-detect)</option>
+                        <option value="domain">By Domain</option>
+                        <option value="single">Single Board</option>
+                    </select>
+                </div>
+
+                <!-- Target Location -->
+                <div id="importLinksTargetLocationSection"
+                    style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--ll-border-soft);">
+                    <div style="font-weight: 500; margin-bottom: 12px;">Target Location</div>
+
+                    <!-- Page selector -->
+                    <div id="importLinksPageRow" style="margin-bottom: 12px;">
+                        <label for="importLinksPage"
+                            style="font-size: 13px; color: var(--ll-text-faint); display: block; margin-bottom: 10px;">Page</label>
+                        <select id="importLinksPage" class="import-share-dropdown"></select>
+                        <div id="importLinksCreatePageRow"
+                            style="margin-top: 18px; display: none; align-items: center; gap: 8px;">
+                            <input type="text" id="importLinksCreatePageInput" class="modal-input"
+                                placeholder="New page name" style="flex: 1;">
+                            <button type="button" class="btn btn-primary" id="importLinksCreatePageBtn">Create</button>
+                            <button type="button" class="btn btn-secondary"
+                                id="importLinksCancelCreatePageBtn">Cancel</button>
+                        </div>
+                    </div>
+
+                    <!-- Distribution method -->
+                    <div id="importLinksDistributionRow" style="display: flex; gap: 12px;">
+                        <div style="flex: 1;">
+                            <label for="importLinksDistribution"
+                                style="font-size: 13px; color: var(--ll-text-faint); display: block; margin-bottom: 10px;">Distribution</label>
+                            <select id="importLinksDistribution" class="import-share-dropdown">
+                                <option value="single">Single Column</option>
+                                <option value="left-to-right" selected>Left to Right</option>
+                            </select>
+                        </div>
+                        <!-- Column selector (only visible when Single Column selected) -->
+                        <div id="importLinksColumnRow" style="flex: 1; display: none;">
+                            <label for="importLinksColumn"
+                                style="font-size: 13px; color: var(--ll-text-faint); display: block; margin-bottom: 10px;">Column</label>
+                            <select id="importLinksColumn" class="import-share-dropdown">
+                                <option value="0">Column 1</option>
+                                <option value="1">Column 2</option>
+                                <option value="2">Column 3</option>
+                                <option value="3">Column 4</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Placement checkbox -->
+                    <label id="importLinksPlacementRow" class="checkbox-label"
+                        style="margin-top: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="importLinksBelowExisting" checked
+                            style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--ll-accent-3);">
+                        <span style="font-size: 13px; color: var(--ll-text-primary);">Place below existing boards</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn btn-secondary" id="cancelImportLinksBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmImportLinksBtn">Import Links</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Glass Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+</body>
+
+</html>

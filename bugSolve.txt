@@ -1,0 +1,21 @@
+## Description
+[Please describe the bug]
+
+## Steps to Reproduce
+1.
+2.
+3.
+
+## Expected Behavior
+[What should happen]
+
+## Actual Behavior
+[What actually happens]
+
+## Environment
+- Extension Version: 1.7.4
+- Browser: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36
+- OS: MacIntel
+
+## Screenshots
+[Attach any relevant screenshots]

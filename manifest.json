@@ -1,0 +1,67 @@
+{
+"update_url": "https://clients2.google.com/service/update2/crx",
+
+  "manifest_version": 3,
+  "name": "Pranto",
+  "version": "1.7.4",
+  "description": "A beautiful, drag-and-drop bookmark manager that replaces your new tab page",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "Quick Save to LumiList (Ctrl/Cmd+Shift+Y)"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "quick-save": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Quick save current page to LumiList"
+    }
+  },
+  "permissions": [
+    "bookmarks",
+    "storage",
+    "tabs",
+    "activeTab",
+    "notifications",
+    "favicon",
+    "scripting",
+    "alarms",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "https://xbccmcszhnybxzlirjgk.supabase.co/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "author": "Sachin",
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "newtab.html"
+      ],
+      "matches": [
+        "https://lumilist.in/*",
+        "https://www.lumilist.in/*"
+      ]
+    }
+  ]
+}

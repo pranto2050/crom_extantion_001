@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "updatedAt": "2026-02-27T10:40:53.659Z",
+  "columns": [
+    [
+      "my-links",
+      "actions",
+      "text-icons"
+    ],
+    [
+      "wallpaper",
+      "board-style",
+      "dropdown-style"
+    ],
+    [
+      "primary-color",
+      "add-board-color",
+      "popup-style"
+    ],
+    [
+      "gradient",
+      "inactive-controls"
+    ]
+  ]
+}

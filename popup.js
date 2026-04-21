@@ -1,0 +1,534 @@
+// Track if listeners have been initialized
+let listenersInitialized = false;
+const QUICK_SAVE_COMMAND_NAME = 'quick-save';
+const SHORTCUTS_SETTINGS_URL = 'chrome://extensions/shortcuts';
+const EXTENSIONS_SETTINGS_URL = 'chrome://extensions';
+const SAVE_BUTTON_DEFAULT_LABEL = 'Save to Bookmarks';
+const SAVE_ALL_BUTTON_DEFAULT_LABEL = 'Save All Tabs';
+const SAVE_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path><line x1="12" y1="7" x2="12" y2="13"></line><line x1="9" y1="10" x2="15" y2="10"></line></svg>`;
+const SAVE_ALL_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>`;
+const WARNING_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+const BUTTON_SPINNER = '<span class="spinner" aria-hidden="true"></span>';
+const POPUP_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
+const POPUP_SESSION_INVALIDATION_STORAGE_KEY = 'lumilist_session_invalidated';
+
+function setPopupButtonState(buttonId, iconId, labelId, iconMarkup, labelText, options = {}) {
+    const button = document.getElementById(buttonId);
+    const iconSlot = document.getElementById(iconId);
+    const label = document.getElementById(labelId);
+    const { disabled, saving = false } = options;
+
+    if (button) {
+        if (typeof disabled === 'boolean') {
+            button.disabled = disabled;
+        }
+        button.classList.toggle('saving', saving);
+    }
+
+    if (iconSlot) iconSlot.innerHTML = iconMarkup;
+    if (label) label.textContent = labelText;
+}
+
+function setSaveButtonState(iconMarkup, labelText, options = {}) {
+    setPopupButtonState('saveBtn', 'saveBtnIcon', 'saveBtnLabel', iconMarkup, labelText, options);
+}
+
+function setSaveAllButtonState(iconMarkup, labelText, options = {}) {
+    setPopupButtonState('saveAllBtn', 'saveAllBtnIcon', 'saveAllBtnLabel', iconMarkup, labelText, options);
+}
+
+function normalizeThemeMode(mode) {
+    return mode === 'light' ? 'light' : 'dark';
+}
+
+async function loadAndApplyThemeMode(options = {}) {
+    let resolvedMode = 'dark';
+    const trustAccountScopedTheme = options?.trustAccountScopedTheme !== false;
+
+    if (trustAccountScopedTheme) {
+        try {
+            const result = await chrome.storage.local.get(['themeMode']);
+            if (result && (result.themeMode === 'dark' || result.themeMode === 'light')) {
+                resolvedMode = result.themeMode;
+            } else {
+                const cachedMode = localStorage.getItem('lumilist_theme_mode');
+                if (cachedMode === 'dark' || cachedMode === 'light') {
+                    resolvedMode = cachedMode;
+                }
+            }
+        } catch (error) {
+            console.warn('Failed to load popup theme mode from storage:', error);
+            const cachedMode = localStorage.getItem('lumilist_theme_mode');
+            if (cachedMode === 'dark' || cachedMode === 'light') {
+                resolvedMode = cachedMode;
+            }
+        }
+    }
+
+    const normalized = normalizeThemeMode(resolvedMode);
+    document.documentElement.setAttribute('data-theme', normalized);
+
+    try {
+        localStorage.setItem('lumilist_theme_mode', normalized);
+    } catch (e) {
+        // non-blocking local cache write
+    }
+}
+
+async function refreshPopupThemeMode() {
+    const popupAccountSyncState = await getPopupAccountSyncState();
+    await loadAndApplyThemeMode({
+        trustAccountScopedTheme: popupAccountSyncState.isLoggedIn && !popupAccountSyncState.loginSyncPending
+    });
+}
+
+function isMacPlatform() {
+    const platform = navigator.platform || '';
+    const userAgent = navigator.userAgent || '';
+    return platform.toUpperCase().includes('MAC') || userAgent.toUpperCase().includes('MAC');
+}
+
+function getFallbackShortcutLabel() {
+    return isMacPlatform() ? 'Cmd+Shift+Y' : 'Ctrl+Shift+Y';
+}
+
+function createTab(url) {
+    return new Promise((resolve, reject) => {
+        chrome.tabs.create({ url }, (tab) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(tab);
+        });
+    });
+}
+
+function getQuickSaveCommand() {
+    return new Promise((resolve, reject) => {
+        if (!chrome.commands || !chrome.commands.getAll) {
+            resolve(null);
+            return;
+        }
+
+        chrome.commands.getAll((commands) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            const quickSaveCommand = (commands || []).find(command => command.name === QUICK_SAVE_COMMAND_NAME) || null;
+            resolve(quickSaveCommand);
+        });
+    });
+}
+
+function updateShortcutUi(shortcutValue, noteText) {
+    const shortcutValueEl = document.getElementById('quickSaveShortcutValue');
+    const shortcutNoteEl = document.getElementById('shortcutSettingNote');
+    if (shortcutValueEl) shortcutValueEl.textContent = shortcutValue;
+    if (shortcutNoteEl) shortcutNoteEl.textContent = noteText;
+}
+
+async function loadShortcutSettings() {
+    try {
+        const quickSaveCommand = await getQuickSaveCommand();
+        if (quickSaveCommand && quickSaveCommand.shortcut) {
+            updateShortcutUi(
+                quickSaveCommand.shortcut,
+                'Open browser shortcut settings to change this key.'
+            );
+        } else {
+            updateShortcutUi(
+                'Not set',
+                'No shortcut assigned. Click Change to set one.'
+            );
+        }
+    } catch (error) {
+        console.error('Failed to load quick save shortcut:', error);
+        updateShortcutUi(
+            getFallbackShortcutLabel(),
+            'Could not read shortcut. Click Change to manage it manually.'
+        );
+    }
+}
+
+async function openShortcutSettings() {
+    const changeBtn = document.getElementById('changeShortcutBtn');
+    const defaultLabel = changeBtn ? changeBtn.textContent : 'Change';
+
+    if (changeBtn) {
+        changeBtn.disabled = true;
+        changeBtn.textContent = 'Opening...';
+    }
+
+    try {
+        await createTab(SHORTCUTS_SETTINGS_URL);
+        updateShortcutUi(
+            document.getElementById('quickSaveShortcutValue')?.textContent || getFallbackShortcutLabel(),
+            'Shortcut settings opened in a new tab.'
+        );
+    } catch (error) {
+        console.warn('Failed to open shortcut settings directly:', error);
+        try {
+            await createTab(EXTENSIONS_SETTINGS_URL);
+            updateShortcutUi(
+                document.getElementById('quickSaveShortcutValue')?.textContent || getFallbackShortcutLabel(),
+                'Opened extensions page. Use "Keyboard shortcuts" there.'
+            );
+        } catch (fallbackError) {
+            console.error('Failed to open extensions page:', fallbackError);
+            updateShortcutUi(
+                document.getElementById('quickSaveShortcutValue')?.textContent || getFallbackShortcutLabel(),
+                'Open chrome://extensions/shortcuts manually.'
+            );
+        }
+    } finally {
+        if (changeBtn) {
+            changeBtn.disabled = false;
+            changeBtn.textContent = defaultLabel;
+        }
+    }
+}
+
+// Get current tab info and display it
+async function init() {
+    try {
+        await refreshPopupThemeMode();
+        setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+        setSaveAllButtonState(SAVE_ALL_BUTTON_ICON, SAVE_ALL_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (tab) {
+            document.getElementById('pageTitle').textContent = tab.title || 'Untitled';
+            document.getElementById('pageTitle').title = tab.title || '';
+            document.getElementById('pageUrl').textContent = tab.url || '';
+            document.getElementById('pageUrl').title = tab.url || '';
+
+            // Check if it's a saveable URL
+            if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
+                setSaveButtonState(WARNING_BUTTON_ICON, 'Cannot save browser pages', { disabled: true, saving: false });
+            }
+        }
+
+        // Count saveable tabs in current window
+        const allTabs = await chrome.tabs.query({ currentWindow: true });
+        const saveableTabs = allTabs.filter(t =>
+            t.url &&
+            !t.url.startsWith('chrome://') &&
+            !t.url.startsWith('chrome-extension://') &&
+            !t.url.startsWith('about:')
+        );
+
+        document.getElementById('tabCount').textContent = saveableTabs.length;
+
+        if (saveableTabs.length === 0) {
+            document.getElementById('saveAllBtn').disabled = true;
+        }
+
+        // Check and display login status
+        await updateSyncStatus();
+
+        // Load pages for dropdown after auth state is known so stale account rows do not flash
+        await loadPagesDropdown();
+
+        // Show current command shortcut (or unassigned state)
+        await loadShortcutSettings();
+
+        // Initialize event listeners only once
+        if (!listenersInitialized) {
+            initializeEventListeners();
+            listenersInitialized = true;
+        }
+
+    } catch (error) {
+        console.error('Init error:', error);
+    }
+}
+
+function normalizePopupLoginSyncState(rawState) {
+    if (!rawState || typeof rawState !== 'object') return null;
+    const userId = (typeof rawState.userId === 'string' && rawState.userId.trim())
+        ? rawState.userId.trim()
+        : null;
+    const phase = (typeof rawState.phase === 'string' && rawState.phase.trim())
+        ? rawState.phase.trim()
+        : null;
+
+    if (!userId || !phase) return null;
+
+    return {
+        userId,
+        phase
+    };
+}
+
+async function getPopupAccountSyncState() {
+    const result = await chrome.storage.local.get([
+        'lumilist_user',
+        POPUP_SESSION_INVALIDATION_STORAGE_KEY,
+        POPUP_LOGIN_SYNC_STATE_STORAGE_KEY
+    ]);
+    const activeUserId = (typeof result?.lumilist_user?.id === 'string' && result.lumilist_user.id.trim())
+        ? result.lumilist_user.id.trim()
+        : null;
+    const loginSyncState = normalizePopupLoginSyncState(result?.[POPUP_LOGIN_SYNC_STATE_STORAGE_KEY]);
+    const invalidation = result?.[POPUP_SESSION_INVALIDATION_STORAGE_KEY];
+    const isLoggedIn = !!activeUserId && !invalidation;
+    const loginSyncPending = isLoggedIn
+        && loginSyncState?.userId === activeUserId
+        && loginSyncState.phase === 'pending';
+
+    return {
+        isLoggedIn,
+        loginSyncPending,
+        activeUserId
+    };
+}
+
+function resetQuickSavePageDropdown(select, { disabled = false } = {}) {
+    if (!select) return;
+    select.innerHTML = '<option value="current">Current Page</option>';
+    select.value = 'current';
+    select.disabled = disabled;
+}
+
+function setSyncBannerState({ visible, message, showSignInLink }) {
+    const banner = document.getElementById('syncBanner');
+    const bannerText = banner?.querySelector('.sync-text');
+    const signInLink = document.getElementById('signInLink');
+
+    if (banner) {
+        banner.classList.toggle('visible', visible);
+    }
+    if (bannerText && typeof message === 'string') {
+        bannerText.textContent = message;
+    }
+    if (signInLink) {
+        signInLink.style.display = showSignInLink ? '' : 'none';
+    }
+}
+
+// Load available pages and populate dropdown
+async function loadPagesDropdown() {
+    const select = document.getElementById('quickSavePage');
+    if (!select) return;
+
+    // Request pages list from background script
+    chrome.runtime.sendMessage({ action: 'getPages' }, async (response) => {
+        // Check for lastError first
+        if (chrome.runtime.lastError) {
+            console.error('Failed to load pages:', chrome.runtime.lastError.message);
+            resetQuickSavePageDropdown(select, { disabled: true });
+            return;
+        }
+        if (!response || !response.pages) {
+            console.error('Failed to load pages: invalid response');
+            resetQuickSavePageDropdown(select, { disabled: true });
+            return;
+        }
+
+        // Clear existing options (keep "Current Page")
+        resetQuickSavePageDropdown(select, { disabled: false });
+
+        // Add each page as an option
+        const validPageIds = new Set();
+        response.pages.forEach(page => {
+            validPageIds.add(page.id);
+            const option = document.createElement('option');
+            option.value = page.id;
+            option.textContent = page.name;
+            select.appendChild(option);
+        });
+
+        // Load saved preference
+        try {
+            const result = await chrome.storage.local.get(['quickSavePageId']);
+            const storedId = result.quickSavePageId;
+            if (storedId) {
+                if (storedId !== 'current' && !validPageIds.has(storedId)) {
+                    // Selected page was deleted - fall back to Current Page
+                    select.value = 'current';
+                    await chrome.storage.local.set({ quickSavePageId: 'current' });
+                } else {
+                    select.value = storedId;
+                }
+            } else {
+                select.value = 'current';
+            }
+        } catch (error) {
+            console.error('Error loading quickSavePageId:', error);
+        }
+    });
+}
+
+// Check login status and update UI accordingly
+async function updateSyncStatus() {
+    const initialState = document.getElementById('initialState');
+    
+    // Always show save UI for local-only use
+    setSyncBannerState({
+        visible: false,
+        message: '',
+        showSignInLink: false
+    });
+    if (initialState) initialState.style.display = 'block';
+}
+
+// Initialize all event listeners (called once)
+function initializeEventListeners() {
+    const select = document.getElementById('quickSavePage');
+    const signInLink = document.getElementById('signInLink');
+    const saveBtn = document.getElementById('saveBtn');
+    const saveAllBtn = document.getElementById('saveAllBtn');
+    const changeShortcutBtn = document.getElementById('changeShortcutBtn');
+
+    // Save page preference when dropdown changes
+    if (select) {
+        select.addEventListener('change', async () => {
+            await chrome.storage.local.set({ quickSavePageId: select.value });
+        });
+    }
+
+    // Sign in link opens newtab
+    if (signInLink) {
+        signInLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            chrome.tabs.create({ url: chrome.runtime.getURL('newtab.html') });
+            window.close();
+        });
+    }
+
+    if (changeShortcutBtn) {
+        changeShortcutBtn.addEventListener('click', async () => {
+            await openShortcutSettings();
+        });
+    }
+
+    window.addEventListener('focus', () => {
+        loadShortcutSettings().catch(err => console.error('Failed to refresh shortcut on focus:', err));
+    });
+
+    // Handle save button click
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async function () {
+            setSaveButtonState(BUTTON_SPINNER, 'Saving...', { disabled: true, saving: true });
+
+            chrome.runtime.sendMessage({ action: 'quickSave' }, (response) => {
+                document.getElementById('initialState').classList.remove('active');
+
+                // Check for lastError first
+                if (chrome.runtime.lastError) {
+                    console.error('Quick save error:', chrome.runtime.lastError.message);
+                    document.getElementById('errorState').classList.add('active');
+                    document.getElementById('errorMessage').textContent = 'Extension error. Try reloading.';
+                    // Re-enable button after error
+                    setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    return;
+                }
+                if (!response) {
+                    console.error('Quick save error: no response');
+                    document.getElementById('errorState').classList.add('active');
+                    document.getElementById('errorMessage').textContent = 'Extension error. Try reloading.';
+                    // Re-enable button after error
+                    setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    return;
+                }
+
+                if (response.success) {
+                    if (response.message.includes('Already')) {
+                        document.getElementById('alreadyState').classList.add('active');
+                    } else {
+                        document.getElementById('successState').classList.add('active');
+                        document.getElementById('pageName').textContent = response.pageName || 'your page';
+                    }
+                    // Auto-close after success
+                    setTimeout(() => window.close(), 1500);
+                } else {
+                    document.getElementById('errorState').classList.add('active');
+                    document.getElementById('errorMessage').textContent = response.message;
+                    // Re-enable button after error
+                    setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                }
+            });
+        });
+    }
+
+    // Handle Save All Tabs button click
+    if (saveAllBtn) {
+        saveAllBtn.addEventListener('click', async function () {
+            setSaveAllButtonState(BUTTON_SPINNER, 'Saving all tabs...', { disabled: true, saving: true });
+
+            chrome.runtime.sendMessage({ action: 'saveAllTabs' }, (response) => {
+                document.getElementById('initialState').classList.remove('active');
+
+                // Check for lastError first
+                if (chrome.runtime.lastError) {
+                    console.error('Save all tabs error:', chrome.runtime.lastError.message);
+                    document.getElementById('errorState').classList.add('active');
+                    document.getElementById('errorMessage').textContent = 'Extension error. Try reloading.';
+                    // Re-enable button after error
+                    setSaveAllButtonState(SAVE_ALL_BUTTON_ICON, SAVE_ALL_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    return;
+                }
+                if (!response) {
+                    console.error('Save all tabs error: no response');
+                    document.getElementById('errorState').classList.add('active');
+                    document.getElementById('errorMessage').textContent = 'Extension error. Try reloading.';
+                    // Re-enable button after error
+                    setSaveAllButtonState(SAVE_ALL_BUTTON_ICON, SAVE_ALL_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    return;
+                }
+
+                if (response.success) {
+                    document.getElementById('saveAllSuccessState').classList.add('active');
+                    document.getElementById('savedTabCount').textContent = response.savedCount || 0;
+                    document.getElementById('saveAllPageName').textContent = response.pageName || 'your page';
+                    // Auto-close after success
+                    setTimeout(() => window.close(), 2000);
+                } else {
+                    document.getElementById('errorState').classList.add('active');
+
+                    if (response.exceedsLimit) {
+                        document.getElementById('errorMessage').textContent =
+                            `Too many tabs (${response.tabCount}). Maximum: ${response.limit}. Close some tabs and try again.`;
+                    } else {
+                        document.getElementById('errorMessage').textContent = response.message;
+                    }
+
+                    // Re-enable button after error
+                    setSaveAllButtonState(SAVE_ALL_BUTTON_ICON, SAVE_ALL_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                }
+            });
+        });
+    }
+}
+
+// Initialize on load
+init();
+
+if (chrome?.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') return;
+
+        const popupAccountBoundaryChanged =
+            changes.lumilist_user
+            || changes.lumilist_session_invalidated
+            || changes[POPUP_LOGIN_SYNC_STATE_STORAGE_KEY];
+
+        if (changes.themeMode || popupAccountBoundaryChanged) {
+            refreshPopupThemeMode().catch((error) => {
+                console.error('Failed to refresh popup theme mode after storage change:', error);
+            });
+        }
+
+        if (popupAccountBoundaryChanged) {
+            Promise.all([
+                updateSyncStatus(),
+                loadPagesDropdown()
+            ]).catch((error) => {
+                console.error('Failed to refresh popup sync state:', error);
+            });
+        }
+    });
+}
