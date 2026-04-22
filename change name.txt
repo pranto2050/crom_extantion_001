@@ -1,2 +1,2 @@
 org: LumiList
-ch: LumiList
+ch: PrantoList

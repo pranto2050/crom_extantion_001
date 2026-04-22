@@ -8918,7 +8918,7 @@ async function exportFullBookmarkBackup() {
         });
 
         const safeDate = generatedAt.toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
-        const filename = `LumiList-bookmark-backup-${safeDate}.html`;
+        const filename = `PrantoList-bookmark-backup-${safeDate}.html`;
         downloadBackupTextFile(backupHtml, filename, 'text/html;charset=utf-8');
         showGlassToast(`Backup exported (${activeBookmarkCount.toLocaleString()} bookmarks).`, 'success');
     } catch (error) {
