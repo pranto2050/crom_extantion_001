@@ -1,6 +1,8 @@
 const BOARD_DEFAULT_STORAGE_KEY = 'shortcutDefaultBoardId';
 const BOARD_LAST_USED_STORAGE_KEY = 'shortcutLastBoardId';
 const BOARD_USE_LAST_STORAGE_KEY = 'shortcutUseLastBoard';
+const PAGE_PLACEHOLDER = '';
+const BOARD_PLACEHOLDER = '';
 
 function parseTabIdFromQuery() {
     const params = new URLSearchParams(window.location.search || '');
@@ -48,35 +50,72 @@ function renderBoards(select, boards) {
 
     if (!Array.isArray(boards) || boards.length === 0) {
         const option = document.createElement('option');
-        option.value = '';
+        option.value = BOARD_PLACEHOLDER;
         option.textContent = 'No boards found';
         select.appendChild(option);
         select.disabled = true;
         return;
     }
 
-    const groups = new Map();
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = BOARD_PLACEHOLDER;
+    placeholderOption.textContent = 'Select board';
+    select.appendChild(placeholderOption);
+
     boards.forEach((board) => {
-        const pageName = board.pageName || 'Untitled Page';
-        if (!groups.has(pageName)) groups.set(pageName, []);
-        groups.get(pageName).push(board);
+        const option = document.createElement('option');
+        option.value = board.id;
+        option.textContent = board.name || 'Untitled Board';
+        select.appendChild(option);
     });
 
-    groups.forEach((pageBoards, pageName) => {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = pageName;
-
-        pageBoards.forEach((board) => {
-            const option = document.createElement('option');
-            option.value = board.id;
-            option.textContent = board.name || 'Untitled Board';
-            optgroup.appendChild(option);
-        });
-
-        select.appendChild(optgroup);
-    });
-
+    select.value = BOARD_PLACEHOLDER;
     select.disabled = false;
+}
+
+function renderPages(select, pages) {
+    select.innerHTML = '';
+
+    const placeholderOption = document.createElement('option');
+    placeholderOption.value = PAGE_PLACEHOLDER;
+    placeholderOption.textContent = 'Select page';
+    select.appendChild(placeholderOption);
+
+    if (!Array.isArray(pages) || pages.length === 0) {
+        select.disabled = true;
+        return;
+    }
+
+    pages.forEach((page) => {
+        const option = document.createElement('option');
+        option.value = page.id;
+        option.textContent = page.name || 'Untitled Page';
+        select.appendChild(option);
+    });
+
+    select.value = PAGE_PLACEHOLDER;
+    select.disabled = false;
+}
+
+function resetBoardsForPageChange(select) {
+    select.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = BOARD_PLACEHOLDER;
+    option.textContent = 'Select page first';
+    select.appendChild(option);
+    select.value = BOARD_PLACEHOLDER;
+    select.disabled = true;
+}
+
+function updateSaveButtonState() {
+    const pageSelect = document.getElementById('pageSelect');
+    const boardSelect = document.getElementById('boardSelect');
+    const saveBtn = document.getElementById('saveBtn');
+    if (!saveBtn) return;
+
+    const selectedPage = pageSelect?.value || PAGE_PLACEHOLDER;
+    const selectedBoard = boardSelect?.value || BOARD_PLACEHOLDER;
+    saveBtn.disabled = !selectedPage || !selectedBoard;
 }
 
 async function loadShortcutBoardPreference(validBoardIds) {
@@ -102,6 +141,7 @@ async function loadShortcutBoardPreference(validBoardIds) {
 }
 
 async function initialize() {
+    const pageSelect = document.getElementById('pageSelect');
     const boardSelect = document.getElementById('boardSelect');
     const saveBtn = document.getElementById('saveBtn');
     const cancelBtn = document.getElementById('cancelBtn');
@@ -122,56 +162,102 @@ async function initialize() {
 
         if (!targetTab || !isSaveableUrl(targetTab.url)) {
             setStatus('This page cannot be saved from a browser internal tab.', 'error');
+            if (pageSelect) pageSelect.disabled = true;
             boardSelect.disabled = true;
             saveBtn.disabled = true;
             return;
         }
 
-        const response = await chrome.runtime.sendMessage({ action: 'getShortcutBoardPickerData' });
-        if (!response?.success) {
-            throw new Error(response?.message || 'Failed to load boards');
+        const pagesResponse = await chrome.runtime.sendMessage({ action: 'getPages' });
+        const pages = Array.isArray(pagesResponse?.pages) ? pagesResponse.pages : [];
+        renderPages(pageSelect, pages);
+        resetBoardsForPageChange(boardSelect);
+
+        if (pages.length === 0) {
+            setStatus('Create a page and board first in LumiList.', 'error');
+            updateSaveButtonState();
+            return;
         }
 
-        renderBoards(boardSelect, response.boards || []);
+        pageSelect?.addEventListener('change', async () => {
+            const selectedPageId = pageSelect.value || PAGE_PLACEHOLDER;
+            resetBoardsForPageChange(boardSelect);
+            setStatus('');
+            updateSaveButtonState();
 
-        const validBoardIds = new Set((response.boards || []).map((board) => board.id));
-        const preferredBoardId = await loadShortcutBoardPreference(validBoardIds);
+            if (!selectedPageId) {
+                return;
+            }
 
-        if (preferredBoardId && validBoardIds.has(preferredBoardId)) {
-            boardSelect.value = preferredBoardId;
-        } else if (boardSelect.options.length > 0) {
-            boardSelect.selectedIndex = 0;
+            try {
+                const boardsResponse = await chrome.runtime.sendMessage({ action: 'getBoardsForPage', pageId: selectedPageId });
+                const boards = Array.isArray(boardsResponse?.boards) ? boardsResponse.boards : [];
+                renderBoards(boardSelect, boards);
+
+                if (boards.length === 0) {
+                    setStatus('No board found on this page. Create one in LumiList.', 'error');
+                    updateSaveButtonState();
+                    return;
+                }
+
+                const validBoardIds = new Set(boards.map((board) => board.id));
+                const preferredBoardId = await loadShortcutBoardPreference(validBoardIds);
+                if (preferredBoardId && validBoardIds.has(preferredBoardId)) {
+                    boardSelect.value = preferredBoardId;
+                }
+            } catch (error) {
+                console.error('Failed to load boards for selected page:', error);
+                setStatus('Failed to load boards for this page.', 'error');
+            }
+
+            updateSaveButtonState();
+        });
+
+        boardSelect?.addEventListener('change', () => {
+            setStatus('');
+            updateSaveButtonState();
+        });
+
+        boardSelect?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' && !saveBtn.disabled) {
+                event.preventDefault();
+                saveBtn.click();
+            }
+        });
+
+        // Restore preferred page/board if available.
+        try {
+            const saved = await chrome.storage.local.get(['quickSavePageId']);
+            const preferredPageId = typeof saved?.quickSavePageId === 'string' ? saved.quickSavePageId : '';
+            const validPageIds = new Set(pages.map((page) => page.id));
+            if (preferredPageId && validPageIds.has(preferredPageId)) {
+                pageSelect.value = preferredPageId;
+                pageSelect.dispatchEvent(new Event('change'));
+            }
+        } catch (error) {
+            console.warn('Failed to restore preferred page in shortcut save window:', error);
         }
 
-        saveBtn.disabled = !boardSelect.value;
         setStatus('');
+        updateSaveButtonState();
     } catch (error) {
         console.error('Failed to initialize shortcut board picker:', error);
         setStatus(error?.message || 'Failed to load board picker.', 'error');
+        if (pageSelect) pageSelect.disabled = true;
         boardSelect.disabled = true;
         saveBtn.disabled = true;
     }
 
-    boardSelect?.addEventListener('change', () => {
-        saveBtn.disabled = !boardSelect.value;
-        setStatus('');
-    });
-
-    boardSelect?.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter' && !saveBtn.disabled) {
-            event.preventDefault();
-            saveBtn.click();
-        }
-    });
-
     saveBtn?.addEventListener('click', async () => {
+        const selectedPageId = pageSelect?.value || PAGE_PLACEHOLDER;
         const boardId = boardSelect.value;
-        if (!boardId) {
-            setStatus('Please choose a board first.', 'error');
+        if (!selectedPageId || !boardId) {
+            setStatus('Please choose page and board first.', 'error');
             return;
         }
 
         saveBtn.disabled = true;
+        if (pageSelect) pageSelect.disabled = true;
         boardSelect.disabled = true;
         setStatus('Saving...', '');
 
@@ -197,8 +283,9 @@ async function initialize() {
         } catch (error) {
             console.error('Shortcut save failed:', error);
             setStatus(error?.message || 'Failed to save bookmark.', 'error');
+            if (pageSelect) pageSelect.disabled = false;
             boardSelect.disabled = false;
-            saveBtn.disabled = !boardSelect.value;
+            updateSaveButtonState();
         }
     });
 }

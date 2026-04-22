@@ -190,7 +190,7 @@
     <main class="shell" aria-live="polite">
         <header class="header">
             <h1 class="title">Save Current Website</h1>
-            <p class="subtitle">Pick a board, then save this tab.</p>
+            <p class="subtitle">Pick a page, then board, then save this tab.</p>
         </header>
         <section class="content">
             <div class="tab-card">
@@ -199,9 +199,16 @@
             </div>
 
             <div class="field">
+                <label for="pageSelect">Page Name</label>
+                <select id="pageSelect" disabled>
+                    <option value="">Loading pages...</option>
+                </select>
+            </div>
+
+            <div class="field">
                 <label for="boardSelect">Board Name</label>
                 <select id="boardSelect" disabled>
-                    <option value="">Loading boards...</option>
+                    <option value="">Select page first</option>
                 </select>
             </div>
 

@@ -1725,13 +1725,11 @@ async function getShortcutBoardPickerData() {
         SHORTCUT_USE_LAST_BOARD_STORAGE_KEY
     ]);
 
-    if (!storageData.lumilist_user) {
-        return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
-    }
-
-    const saveGuard = getBackgroundSaveGuardResult(storageData);
-    if (!saveGuard.allowed) {
-        return { success: false, message: saveGuard.message, loginSyncPending: true };
+    if (storageData.lumilist_user) {
+        const saveGuard = getBackgroundSaveGuardResult(storageData);
+        if (!saveGuard.allowed) {
+            return { success: false, message: saveGuard.message, loginSyncPending: true };
+        }
     }
 
     const pages = await db.pages.orderBy('order').filter((page) => !page.deletedAt).toArray();
@@ -2603,24 +2601,22 @@ async function quickSaveTabToBoard(tab, boardId) {
             BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY
         ]);
 
-        if (!storageData.lumilist_user) {
-            return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
-        }
+        if (storageData.lumilist_user) {
+            const subscriptionAccess = await resolveBackgroundSubscriptionWriteAccess(storageData);
+            const subAccess = subscriptionAccess.subAccess;
+            if (!subAccess.allowed) {
+                return {
+                    success: false,
+                    message: subAccess.message,
+                    requiresSubscription: !!subAccess.requiresSubscription,
+                    requiresStatusRefresh: !!subAccess.requiresStatusRefresh
+                };
+            }
 
-        const subscriptionAccess = await resolveBackgroundSubscriptionWriteAccess(storageData);
-        const subAccess = subscriptionAccess.subAccess;
-        if (!subAccess.allowed) {
-            return {
-                success: false,
-                message: subAccess.message,
-                requiresSubscription: !!subAccess.requiresSubscription,
-                requiresStatusRefresh: !!subAccess.requiresStatusRefresh
-            };
-        }
-
-        const saveGuard = getBackgroundSaveGuardResult(storageData);
-        if (!saveGuard.allowed) {
-            return { success: false, message: saveGuard.message, loginSyncPending: true };
+            const saveGuard = getBackgroundSaveGuardResult(storageData);
+            if (!saveGuard.allowed) {
+                return { success: false, message: saveGuard.message, loginSyncPending: true };
+            }
         }
 
         const limitCheck = await checkBookmarkLimitFromDB();
