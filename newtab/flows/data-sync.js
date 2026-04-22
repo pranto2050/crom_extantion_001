@@ -2298,6 +2298,33 @@ function getBookmarkMetadata(url, title, description) {
     return { folder, tags: tags.join(', ') };
 }
 
+async function getOrCreateSmartFolderBoard(folderName) {
+    if (!folderName || !currentPageId) return null;
+
+    try {
+        // Try to find an existing board with this name on the current page
+        const existingBoard = await db.boards
+            .where('pageId').equals(currentPageId)
+            .filter(b => b.name === folderName && !b.deletedAt)
+            .first();
+
+        if (existingBoard) return existingBoard.id;
+
+        // If not found, create a new one
+        const newBoard = await addBoard({
+            name: folderName,
+            pageId: currentPageId,
+            columnIndex: 0, // Default to first column
+            order: 0
+        }, { skipHistory: true });
+
+        return newBoard?.id;
+    } catch (error) {
+        console.error('Failed to get/create smart folder board:', error);
+        return null;
+    }
+}
+
 // Wrapper for db.bookmarks.add with timestamps + auto-sync + cross-tab broadcast
 async function addBookmark(bookmarkData, options = {}) {
     // Check subscription status before modifying data
@@ -2323,8 +2350,18 @@ async function addBookmark(bookmarkData, options = {}) {
         
         // Apply Smart Folders and Tagging if enabled
         const metadata = getBookmarkMetadata(bookmarkData.url, bookmarkData.title, bookmarkData.description);
+        
+        let boardId = bookmarkData.boardId;
+        if (window.smartFoldersEnabled && metadata.folder) {
+            const smartBoardId = await getOrCreateSmartFolderBoard(metadata.folder);
+            if (smartBoardId) {
+                boardId = smartBoardId;
+            }
+        }
+
         const dataWithMetadata = {
             ...bookmarkData,
+            boardId,
             folder: metadata.folder,
             tags: metadata.tags
         };

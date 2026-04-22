@@ -2,93 +2,14 @@ function getBookmarkNoteText(rawDescription) {
     return sanitizeBookmarkNote(rawDescription);
 }
 
+// Generate HTML string for a single bookmark
 function generateBookmarkHTML(bookmark) {
-    if (!bookmark || !bookmark.id || !bookmark.url) {
-        console.error('Invalid bookmark data for HTML generation:', bookmark);
-        return '';
-    }
-
-    const escapedUrl = escapeHTML(bookmark.url);
-    const escapedTitle = escapeHTML(bookmark.title || 'Untitled');
-    const escapedBookmarkId = escapeHTML(bookmark.id);
-    const noteText = getBookmarkNoteText(bookmark.description);
-    const noteHtml = noteText ? `<span class="bookmark-note">${escapeHTML(noteText)}</span>` : '';
-
-    // Check if bookmark is selected (for multi-select feature)
-    const selectedClass = selectedBookmarks.has(bookmark.id) ? 'selected' : '';
-
-    // Determine target attribute based on openLinksInNewTab setting
-    const targetAttr = openLinksInNewTab ? 'target="_blank" rel="noopener noreferrer"' : '';
-
-    // Only add class attribute if there are classes to avoid empty class=""
-    const classAttr = selectedClass ? ` class="${selectedClass}"` : '';
-
-    return `<li id="bookmark-${escapedBookmarkId}" data-bookmark-id="${escapedBookmarkId}" draggable="true"${classAttr}>
-        <a href="${escapedUrl}" ${targetAttr}>
-            <div class="bookmark-content">
-                <span class="favicon" data-url="${escapedUrl}" data-title="${escapedTitle}"></span>
-                <span class="bookmark-text">
-                    <span class="bookmark-title">${escapedTitle}</span>
-                    ${noteHtml}
-                </span>
-            </div>
-            <div class="bookmark-actions">
-                <button class="bookmark-edit-btn" data-action="edit-bookmark" data-bookmark-id="${escapedBookmarkId}" title="Edit bookmark">${BOOKMARK_EDIT_ICON}</button>
-                <button class="bookmark-delete-btn" data-action="delete-bookmark" data-bookmark-id="${escapedBookmarkId}" title="Delete bookmark">${BOOKMARK_DELETE_ICON}</button>
-            </div>
-        </a>
-    </li>`;
+    return BookmarkComponent.render(bookmark);
 }
 
 // Generate HTML string for a single board with its bookmarks (used by Idiomorph morphing)
 function generateBoardHTML(board, bookmarks) {
-    if (!board || !board.id) {
-        console.error('Invalid board data for HTML generation:', board);
-        return '';
-    }
-
-    const escapedBoardId = escapeHTML(board.id);
-    const escapedName = escapeHTML(board.name || 'Untitled Board');
-    const isShared = !!board.shareId;
-
-    // Build class list
-    let boardClasses = 'board';
-    if (privacyModeEnabled) boardClasses += ' privacy-blur';
-    if (isShared) boardClasses += ' shared-board';
-
-    const visibleBookmarks = getVisibleBookmarksForBoard(board.id, bookmarks);
-    const bookmarkToggleControl = getBoardBookmarkToggleControl(board.id, bookmarks.length);
-
-    // Generate bookmarks HTML
-    const bookmarksHTML = visibleBookmarks
-        .map(bookmark => generateBookmarkHTML(bookmark))
-        .join('');
-    const showRemainingButton = bookmarkToggleControl
-        ? `<button class="board-show-remaining-btn" data-action="${bookmarkToggleControl.action}" data-board-id="${escapedBoardId}">${bookmarkToggleControl.label}</button>`
-        : '';
-
-    // Build shared subtitle if applicable
-    const sharedSubtitle = isShared ? '<span class="shared-subtitle">Shared</span>' : '';
-
-    // Note: Board menu dropdown is NOT included here because it's appended to document.body
-    // The menu is created/positioned separately in initBoardMenuForMorphedBoard()
-
-    return `<div id="board-${escapedBoardId}" class="${boardClasses}" data-board-id="${escapedBoardId}">
-        <div class="board-title" draggable="true" data-board-id="${escapedBoardId}">
-            <span class="board-title-text" title="Double-click to open all links in new tabs">${escapedName}</span>
-            ${sharedSubtitle}
-            <div class="board-buttons">
-                <button class="board-add-btn" data-action="add-bookmark" data-board-id="${escapedBoardId}" title="Add new link">
-                    ${BOARD_ADD_ICON}
-                </button>
-                <div class="board-menu-container">
-                    <button class="board-menu-btn" data-action="toggle-board-menu" data-board-id="${escapedBoardId}" title="Board options">&#8942;</button>
-                </div>
-            </div>
-        </div>
-        <ul class="board-links">${bookmarksHTML}</ul>
-        ${showRemainingButton}
-    </div>`;
+    return BoardComponent.render(board, bookmarks);
 }
 
 // Clean up board menus that no longer have a corresponding board in the DOM
@@ -113,6 +34,8 @@ const BOOKMARK_EDIT_ICON = BOARD_MENU_EDIT_ICON
     .replace('width="16"', 'width="14"')
     .replace('height="16"', 'height="14"');
 const BOOKMARK_DELETE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" class="bookmark-delete-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
+const BOOKMARK_PIN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" class="bookmark-pin-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
+const BOOKMARK_UNPIN_ICON = `<svg xmlns="http://www.w3.org/2000/svg" class="bookmark-pin-icon" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>`;
 const BOARD_MENU_SHARE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" class="board-menu-icon" width="16" height="16" viewBox="0 0 800 800" fill="none" aria-hidden="true"><path d="M176.151,250.186c44.306,0 83.451,20.301 110.085,51.579c1.277,1.5 3.443,1.874 5.149,0.889l186.802,-107.858c1.392,-0.804 2.183,-2.349 2.02,-3.948c-9.18,-90.205 61.311,-159.847 143.642,-159.847c80.16,0 145.151,64.991 145.151,145.151c0,80.16 -64.991,145.151 -145.151,145.151c-48.88,0 -91.877,-24.357 -118.186,-61.371c-1.22,-1.716 -3.545,-2.223 -5.368,-1.17l-179.9,103.866c-1.514,0.874 -2.303,2.615 -1.963,4.33c3.92,19.744 3.811,38.762 -0.327,58.47c-0.363,1.729 0.428,3.495 1.959,4.377l184.564,106.216c1.763,1.014 4.003,0.577 5.254,-1.027c26.561,-34.036 67.485,-56.294 113.967,-56.294c80.16,0 145.151,64.991 145.151,145.151c0,80.16 -64.991,145.151 -145.151,145.151c-85.707,0 -156.892,-75.192 -142.922,-166.959c0.253,-1.664 -0.541,-3.313 -2,-4.152l-188.63,-108.53c-1.691,-0.973 -3.834,-0.613 -5.114,0.858c-26.598,30.553 -65.344,50.27 -109.032,50.27c-80.16,0 -145.151,-64.991 -145.151,-145.151c0,-80.16 64.991,-145.151 145.151,-145.151Zm447.698,4.664c43.402,0 78.698,-35.296 78.698,-78.698c0,-43.402 -35.296,-78.698 -78.698,-78.698c-104,0 -104.039,157.397 0,157.397Zm-447.698,219.186c43.402,0 78.698,-35.296 78.698,-78.698c0,-43.402 -35.296,-78.698 -78.698,-78.698c-43.402,0 -78.698,35.296 -78.698,78.698c0,43.402 35.296,78.698 78.698,78.698Zm447.698,228.513c43.402,0 78.698,-35.296 78.698,-78.698c0,-43.402 -35.296,-78.698 -78.698,-78.698c-104,0 -104.039,157.397 0,157.397Z" fill="currentColor"/></svg>`;
 
 function buildBoardMenuIconLabel(iconSvg, label) {
@@ -1130,7 +1053,30 @@ async function renderBoard(board) {
             .where('boardId')
             .equals(board.id)
             .filter(b => !b.deletedAt)
-            .sortBy('order');
+            .toArray();
+
+        // Sort bookmarks based on active feature flags
+        bookmarks.sort((a, b) => {
+            // 1. Pin Favorites (if enabled)
+            if (window.pinFavoritesEnabled) {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+            }
+
+            // 2. Sorting behavior
+            if (window.recentlyUsedEnabled) {
+                const timeA = a.lastVisited ? new Date(a.lastVisited).getTime() : 0;
+                const timeB = b.lastVisited ? new Date(b.lastVisited).getTime() : 0;
+                if (timeA !== timeB) return timeB - timeA;
+            } else if (window.frequentlyUsedEnabled) {
+                const countA = a.visitCount || 0;
+                const countB = b.visitCount || 0;
+                if (countA !== countB) return countB - countA;
+            }
+
+            // 3. Default order
+            return (a.order || 0) - (b.order || 0);
+        });
 
         const visibleBookmarks = getVisibleBookmarksForBoard(board.id, bookmarks);
         const bookmarkToggleControl = getBoardBookmarkToggleControl(board.id, bookmarks.length);
@@ -1387,6 +1333,21 @@ async function renderBoard(board) {
                 const bookmarkActions = document.createElement('div');
                 bookmarkActions.className = 'bookmark-actions';
 
+                // Create pin button for bookmark
+                const bookmarkPinBtn = document.createElement('button');
+                bookmarkPinBtn.className = 'bookmark-pin-btn';
+                bookmarkPinBtn.innerHTML = bookmark.isPinned ? BOOKMARK_UNPIN_ICON : BOOKMARK_PIN_ICON;
+                bookmarkPinBtn.title = bookmark.isPinned ? 'Unpin bookmark' : 'Pin bookmark';
+                bookmarkPinBtn.setAttribute('data-action', 'pin-bookmark');
+                bookmarkPinBtn.setAttribute('data-bookmark-id', bookmark.id);
+                bookmarkPinBtn.addEventListener('click', async function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (typeof toggleBookmarkPin === 'function') {
+                        await toggleBookmarkPin(bookmark.id);
+                    }
+                });
+
                 // Create edit button for bookmark
                 const bookmarkEditBtn = document.createElement('button');
                 bookmarkEditBtn.className = 'bookmark-edit-btn';
@@ -1417,6 +1378,9 @@ async function renderBoard(board) {
                     }
                 });
 
+                if (window.pinFavoritesEnabled) {
+                    bookmarkActions.appendChild(bookmarkPinBtn);
+                }
                 bookmarkActions.appendChild(bookmarkEditBtn);
                 bookmarkActions.appendChild(bookmarkDeleteBtn);
 

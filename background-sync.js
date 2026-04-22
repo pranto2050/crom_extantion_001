@@ -391,6 +391,7 @@ function convertBoardToServerFormat(board, userId, isUpsert = false) {
         name: getLocalOrServerField(board, 'name', 'name'),
         column_index: getLocalOrServerField(board, 'columnIndex', 'column_index', 0) ?? 0,
         order: getLocalOrServerField(board, 'order', 'order', 0) ?? 0,
+        color: getLocalOrServerField(board, 'color', 'color', null) ?? null,
         deleted_at: getLocalOrServerField(board, 'deletedAt', 'deleted_at', null) ?? null,
         share_id: getLocalOrServerField(board, 'shareId', 'share_id', null) ?? null,
         // FIX: Always include updated_at - client is source of truth for timestamps

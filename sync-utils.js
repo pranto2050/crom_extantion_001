@@ -53,7 +53,8 @@ function isBoardEqual(a, b) {
         a.order === b.order &&
         a.pageId === b.pageId &&
         a.deletedAt === b.deletedAt &&
-        a.shareId === b.shareId;
+        a.shareId === b.shareId &&
+        a.color === b.color;
 }
 
 /**

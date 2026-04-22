@@ -28,6 +28,7 @@
     <script defer src="newtab/features/wallpaper.js"></script>
     <script defer src="newtab/flows/data-sync.js"></script>
     <script defer src="newtab/workspace/pages.js"></script>
+    <script defer src="newtab/workspace/components.js"></script>
     <script defer src="newtab/workspace/render.js"></script>
     <script defer src="newtab/workspace/drag-drop.js"></script>
     <script defer src="newtab/flows/trash.js"></script>
@@ -46,6 +47,7 @@
 </head>
 
 <body class="not-authenticated">
+    <video id="appWallpaperVideo" class="app-wallpaper-video" autoplay loop muted playsinline style="display: none;"></video>
     <!-- Global Loading Overlay - Hidden by default, shown only for logged-in users during sync -->
     <div class="loading-overlay hidden" id="loadingOverlay">
         <div class="loading-content">
@@ -174,6 +176,8 @@
                         aria-pressed="false">URL</button>
                     <button type="button" class="search-scope-chip" data-search-scope="note"
                         aria-pressed="false">Description</button>
+                    <button type="button" class="search-scope-chip" data-search-scope="tags"
+                        aria-pressed="false">Tags</button>
                 </div>
                 <label class="search-strict-toggle" for="searchStrictToggle" title="Use exact matching">
                     <input type="checkbox" id="searchStrictToggle">
@@ -306,6 +310,26 @@
                 <div class="form-group">
                     <label for="editBoardName">Board Name *</label>
                     <input type="text" id="editBoardName" name="name" required placeholder="Enter board name...">
+                </div>
+
+                <div class="form-group">
+                    <label for="editBoardColor">Board Color</label>
+                    <div class="color-input-wrapper">
+                        <input type="color" id="editBoardColor" name="color" value="#ffffff">
+                        <button type="button" id="randomizeBoardColorBtn" class="btn-icon-only" title="Random color">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        </button>
+                    </div>
+                    <label class="board-color-default-toggle" for="editBoardUseDefaultColor">
+                        <span class="board-color-default-copy">
+                            <span class="board-color-default-title">Use theme default color</span>
+                            <span class="board-color-default-subtitle">Removes the custom color and follows the board theme color.</span>
+                        </span>
+                        <span class="board-color-default-switch" aria-hidden="true">
+                            <input type="checkbox" id="editBoardUseDefaultColor">
+                            <span class="board-color-default-track"></span>
+                        </span>
+                    </label>
                 </div>
 
                 <div class="modal-buttons">
@@ -558,11 +582,11 @@
         <div class="wallpaper-popup-section">
             <div class="wallpaper-grid" id="wallpaperGrid"></div>
             <p class="wallpaper-empty-state hidden" id="wallpaperEmptyState">
-                No wallpapers available for this theme yet. Add images to the matching wallpaper folder and run
+                No wallpapers available for this theme yet. Add images or videos to the matching wallpaper folder and run
                 npm run wallpapers:sync.
             </p>
             <div class="wallpaper-popup-actions">
-                <input type="file" id="wallpaperUploadInput" accept="image/*" class="hidden">
+                <input type="file" id="wallpaperUploadInput" accept="image/*,video/*" class="hidden">
                 <button type="button" class="wallpaper-popup-action-btn" id="wallpaperUploadBtn">
                     Upload Wallpaper
                 </button>
@@ -587,6 +611,45 @@
                 <button type="button" class="btn btn-secondary" id="wallpaperStyleModalResetBtn">Reset</button>
                 <button type="button" class="btn btn-primary" id="wallpaperStyleModalSaveBtn">Save</button>
             </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="wallpaperCropModal">
+        <div class="modal wallpaper-crop-modal">
+            <h3>Crop Wallpaper</h3>
+            <p class="wallpaper-crop-modal-subtitle">Zoom and drag the image. What you see inside the box will be your background.</p>
+            <div class="wallpaper-crop-header">
+                    <button type="button" class="btn btn-secondary" id="wallpaperCropUploadBtn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        Upload New
+                    </button>
+                    <input type="file" id="wallpaperCropFileInput" accept="image/*" style="display: none;">
+                </div>
+                <div class="wallpaper-crop-container" id="wallpaperCropContainer">
+                    <div id="wallpaperCropPreview" class="wallpaper-crop-preview">
+                        <canvas id="wallpaperCropCanvas"></canvas>
+                    </div>
+                </div>
+                <div class="wallpaper-crop-controls">
+                    <div class="zoom-control">
+                        <label for="wallpaperZoomSlider">Zoom</label>
+                        <input type="range" id="wallpaperZoomSlider" min="0.1" max="3" step="0.01" value="1">
+                        <button type="button" class="btn-icon" id="wallpaperCropResetBtn" title="Reset Position & Zoom">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                                <path d="M3 3v5h5"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-buttons wallpaper-crop-modal-buttons">
+                    <button type="button" class="btn btn-secondary" id="wallpaperCropCancelBtn">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="wallpaperCropSaveBtn">Set Background</button>
+                </div>
         </div>
     </div>
 
@@ -871,6 +934,17 @@
 
                             <div class="toggle-setting">
                                 <div class="toggle-label">
+                                    <span class="toggle-label-title">Automatic Board Colors</span>
+                                    <span class="toggle-label-description">Automatically generate different colors for each board when created.</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="autoBoardColorToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
                                     <span class="toggle-label-title">Usage Tracking Insights</span>
                                     <span class="toggle-label-description">Show bookmark usage data and insights in the tools rail</span>
                                 </div>
@@ -931,6 +1005,29 @@
                                     <input type="checkbox" id="truncateTitlesToggle" checked>
                                     <span class="toggle-slider"></span>
                                 </label>
+                            </div>
+                        </div>
+
+                        <div class="settings-group-card">
+                            <h4 class="settings-subtitle">Customize Background</h4>
+                            <div class="settings-section">
+                                <p class="settings-help-text">Set a separate background for each page. By default, pages use the global wallpaper.</p>
+                                <div class="quick-save-setting">
+                                    <div class="toggle-label">
+                                        <span class="toggle-label-title">Select Page</span>
+                                    </div>
+                                    <select id="customizeBackgroundPageSelect" class="setting-select">
+                                        <!-- Will be populated dynamically -->
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                    <button type="button" class="btn btn-primary" id="changePageBackgroundBtn" style="flex: 1;">
+                                        Change Background
+                                    </button>
+                                    <button type="button" class="btn btn-secondary" id="resetPageBackgroundBtn" style="flex: 1; display: none;">
+                                        Reset to Global
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -1016,7 +1113,7 @@
                             <div class="toggle-setting">
                                 <div class="toggle-label">
                                     <span class="toggle-label-title">Pin Favorites</span>
-                                    <span class="toggle-label-description">Move pinned bookmarks to the top</span>
+                                    <span class="toggle-label-description">Show pin icon and move pinned bookmarks to the top</span>
                                 </div>
                                 <label class="toggle-switch">
                                     <input type="checkbox" id="pinFavoritesToggle">

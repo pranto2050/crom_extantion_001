@@ -31,6 +31,7 @@ async function initializeDatabase(options = {}) {
             loadIncognitoModeFromStorage(startupStorage),
             loadCompactModeFromStorage(startupStorage),
             loadTruncateTitlesSetting(startupStorage),
+            loadAutoBoardColorSetting(startupStorage),
             loadOpenInNewTabSetting(startupStorage),
             loadLargeBoardCollapseSetting(startupStorage),
             loadShowBookmarkNotesSetting(startupStorage)
@@ -894,6 +895,11 @@ async function switchToPage(pageId, options = {}) {
 
         // Update UI
         updateActivePageTab();
+
+        // Update wallpaper for new page
+        if (typeof applyActiveThemeWallpaper === 'function') {
+            applyActiveThemeWallpaper();
+        }
 
         // Load page content
         await loadBoardsFromDatabase();

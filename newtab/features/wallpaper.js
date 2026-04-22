@@ -13,6 +13,7 @@
             setBundledWallpaperCatalogState,
             getWallpaperSelectionByTheme,
             setWallpaperSelectionByTheme,
+            getCurrentPageId,
             getWallpaperThemeDefaults,
             setWallpaperThemeDefaults,
             normalizeWallpaperStyleConfig,
@@ -96,6 +97,9 @@
             applyThemeStyleTokens,
             toCssUrlValue,
             buildSyncSafeWallpaperSelection,
+            getPageWallpaperSelections,
+            setPageWallpaperSelections,
+            pageWallpaperStorageKey,
             isLocalOnlyInstalledWallpaperRef,
             localUserWallpaperSourceType,
             showGlassToast
@@ -110,11 +114,13 @@
             uploads: null,
             downloaded: null,
             starter: null,
-            archived: null
+            archived: null,
+            videos: null
         };
         let wallpaperContextMenuState = null;
         let wallpaperStylePersistTimeoutId = null;
         let wallpaperStyleEditorState = null;
+        let wallpaperCropEditorState = null;
         let wallpaperSelectionStorageWriteRequestId = 0;
         let wallpaperDownloadOverlayRequestCount = 0;
         let latestAppliedWallpaperAccountStateUserId = null;
@@ -1076,6 +1082,21 @@
             };
         }
 
+        function getWallpaperCropModalElements() {
+            return {
+                modal: document.getElementById('wallpaperCropModal'),
+                container: document.getElementById('wallpaperCropContainer'),
+                preview: document.getElementById('wallpaperCropPreview'),
+                canvas: document.getElementById('wallpaperCropCanvas'),
+                zoomSlider: document.getElementById('wallpaperZoomSlider'),
+                resetButton: document.getElementById('wallpaperCropResetBtn'),
+                uploadButton: document.getElementById('wallpaperCropUploadBtn'),
+                fileInput: document.getElementById('wallpaperCropFileInput'),
+                cancelButton: document.getElementById('wallpaperCropCancelBtn'),
+                saveButton: document.getElementById('wallpaperCropSaveBtn')
+            };
+        }
+
         function collapseWallpaperPopupForStyleEditor() {
             const wallpaperPopup = document.getElementById('wallpaperPopup');
             const floatingWallpaperBtn = document.getElementById('floatingWallpaperBtn');
@@ -1223,6 +1244,34 @@
                 })
             );
 
+            const installedRecord = isInstalledWallpaperRef(wallpaperStyleEditorState.wallpaperId)
+                ? getInstalledWallpaperRecordByRef(wallpaperStyleEditorState.wallpaperId)
+                : null;
+
+            if (installedRecord && isUserUploadWallpaperSourceType(installedRecord.sourceType)) {
+                const cropBtnContainer = document.createElement('div');
+                cropBtnContainer.className = 'wallpaper-style-crop-btn-container';
+                
+                const cropBtn = document.createElement('button');
+                cropBtn.type = 'button';
+                cropBtn.className = 'btn btn-secondary btn-crop-wallpaper';
+                cropBtn.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path>
+                        <path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path>
+                    </svg>
+                    Crop Wallpaper
+                `;
+                cropBtn.onclick = () => {
+                    openWallpaperCropEditor({
+                        wallpaperId: wallpaperStyleEditorState.wallpaperId,
+                        theme: wallpaperStyleEditorState.theme
+                    });
+                };
+                cropBtnContainer.appendChild(cropBtn);
+                controlsGrid.appendChild(cropBtnContainer);
+            }
+
             controls.replaceChildren(controlsGrid);
             updateWallpaperStyleEditorActionButtons();
         }
@@ -1322,6 +1371,284 @@
                 && typeof activeSession.returnFocusElement.focus === 'function'
             ) {
                 activeSession.returnFocusElement.focus({ preventScroll: true });
+            }
+        }
+
+        async function openWallpaperCropEditor({
+            wallpaperId = null,
+            theme = getThemeMode()
+        } = {}) {
+            const {
+                modal,
+                canvas,
+                zoomSlider,
+                cancelButton,
+                saveButton,
+                resetButton
+            } = getWallpaperCropModalElements();
+            if (!modal || !canvas) return;
+
+            const record = isInstalledWallpaperRef(wallpaperId)
+                ? getInstalledWallpaperRecordByRef(wallpaperId)
+                : null;
+            
+            const blob = record?.originalImageBlob || record?.imageBlob;
+            if (!(blob instanceof Blob)) {
+                showGlassToast('Original image not found for cropping.', 'warning', 3200);
+                return;
+            }
+
+            const dataUrl = await readWallpaperUploadFileAsDataUrl(blob);
+            const image = await loadWallpaperUploadImageFromDataUrl(dataUrl);
+            
+            // Restore last state if available, or use defaults
+            const lastState = record?.cropState || { zoom: 1, offsetX: 0, offsetY: 0 };
+
+            wallpaperCropEditorState = {
+                wallpaperId,
+                theme,
+                image,
+                zoom: lastState.zoom,
+                offsetX: lastState.offsetX,
+                offsetY: lastState.offsetY,
+                isDragging: false,
+                startX: 0,
+                startY: 0
+            };
+
+            // Initial render
+            canvas.width = image.width;
+            canvas.height = image.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0);
+
+            if (zoomSlider) {
+                zoomSlider.value = wallpaperCropEditorState.zoom;
+            }
+
+            modal.classList.add('active');
+            updateWallpaperCropUI();
+
+            if (!modal.dataset.listenersAdded) {
+                setupWallpaperCropListeners();
+                modal.dataset.listenersAdded = 'true';
+            }
+
+            cancelButton.onclick = () => closeWallpaperCropEditor();
+            saveButton.onclick = () => saveWallpaperCrop();
+            resetButton.onclick = () => resetWallpaperCrop();
+        }
+
+        function closeWallpaperCropEditor() {
+            const { modal } = getWallpaperCropModalElements();
+            wallpaperCropEditorState = null;
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        async function resetWallpaperCrop() {
+            if (!wallpaperCropEditorState) return;
+            const { zoomSlider, canvas } = getWallpaperCropModalElements();
+            
+            const record = isInstalledWallpaperRef(wallpaperCropEditorState.wallpaperId)
+                ? getInstalledWallpaperRecordByRef(wallpaperCropEditorState.wallpaperId)
+                : null;
+            
+            const blob = record?.originalImageBlob || record?.imageBlob;
+            if (blob instanceof Blob) {
+                const dataUrl = await readWallpaperUploadFileAsDataUrl(blob);
+                const image = await loadWallpaperUploadImageFromDataUrl(dataUrl);
+                
+                wallpaperCropEditorState.image = image;
+                if (canvas) {
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) ctx.drawImage(image, 0, 0);
+                }
+            }
+
+            wallpaperCropEditorState.zoom = 1;
+            wallpaperCropEditorState.offsetX = 0;
+            wallpaperCropEditorState.offsetY = 0;
+            wallpaperCropEditorState.newOriginalFile = null;
+            
+            if (zoomSlider) zoomSlider.value = 1;
+            updateWallpaperCropUI();
+        }
+
+        function updateWallpaperCropUI() {
+            const { canvas } = getWallpaperCropModalElements();
+            if (!canvas || !wallpaperCropEditorState) return;
+            
+            const { zoom, offsetX, offsetY } = wallpaperCropEditorState;
+            canvas.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom})`;
+        }
+
+        function setupWallpaperCropListeners() {
+            const { preview, zoomSlider, uploadButton, fileInput } = getWallpaperCropModalElements();
+            if (!preview) return;
+            
+            if (uploadButton && fileInput) {
+                uploadButton.onclick = () => fileInput.click();
+                fileInput.onchange = async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    
+                    if (!file.type.startsWith('image/')) {
+                        showGlassToast('Please select an image file.', 'warning', 3200);
+                        return;
+                    }
+
+                    const dataUrl = await readWallpaperUploadFileAsDataUrl(file);
+                    const image = await loadWallpaperUploadImageFromDataUrl(dataUrl);
+                    
+                    // Update state with new image
+                    wallpaperCropEditorState.image = image;
+                    wallpaperCropEditorState.zoom = 1;
+                    wallpaperCropEditorState.offsetX = 0;
+                    wallpaperCropEditorState.offsetY = 0;
+                    
+                    // Update canvas
+                    const { canvas } = getWallpaperCropModalElements();
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(image, 0, 0);
+                    
+                    if (zoomSlider) zoomSlider.value = 1;
+                    updateWallpaperCropUI();
+                    
+                    // We need to keep the original file for future crops
+                    // We'll update the record when saving
+                    wallpaperCropEditorState.newOriginalFile = file;
+                };
+            }
+
+            const onMouseDown = (e) => {
+                if (!wallpaperCropEditorState) return;
+                wallpaperCropEditorState.isDragging = true;
+                wallpaperCropEditorState.startX = e.clientX - wallpaperCropEditorState.offsetX;
+                wallpaperCropEditorState.startY = e.clientY - wallpaperCropEditorState.offsetY;
+                e.preventDefault();
+            };
+
+            const onMouseMove = (e) => {
+                if (!wallpaperCropEditorState || !wallpaperCropEditorState.isDragging) return;
+                
+                wallpaperCropEditorState.offsetX = e.clientX - wallpaperCropEditorState.startX;
+                wallpaperCropEditorState.offsetY = e.clientY - wallpaperCropEditorState.startY;
+                
+                updateWallpaperCropUI();
+            };
+
+            const onMouseUp = () => {
+                if (!wallpaperCropEditorState) return;
+                wallpaperCropEditorState.isDragging = false;
+            };
+
+            const onWheel = (e) => {
+                if (!wallpaperCropEditorState) return;
+                e.preventDefault();
+                
+                const delta = e.deltaY > 0 ? -0.05 : 0.05;
+                const newZoom = Math.max(0.1, Math.min(5, wallpaperCropEditorState.zoom + delta));
+                
+                wallpaperCropEditorState.zoom = newZoom;
+                if (zoomSlider) zoomSlider.value = newZoom;
+                
+                updateWallpaperCropUI();
+            };
+
+            if (zoomSlider) {
+                zoomSlider.oninput = (e) => {
+                    if (!wallpaperCropEditorState) return;
+                    wallpaperCropEditorState.zoom = parseFloat(e.target.value);
+                    updateWallpaperCropUI();
+                };
+            }
+
+            preview.addEventListener('mousedown', onMouseDown);
+            preview.addEventListener('wheel', onWheel, { passive: false });
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        }
+
+        async function saveWallpaperCrop() {
+            if (!wallpaperCropEditorState) return;
+            
+            const { image, zoom, offsetX, offsetY, wallpaperId, theme, newOriginalFile } = wallpaperCropEditorState;
+            const { container } = getWallpaperCropModalElements();
+            
+            const containerRect = container.getBoundingClientRect();
+            
+            // We want to capture what's visible in the container
+            const canvas = document.createElement('canvas');
+            canvas.width = containerRect.width;
+            canvas.height = containerRect.height;
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            // Fill background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw the image with current transform
+            // The image is centered in the preview by CSS (flex)
+            // Offset is relative to that center
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            const drawWidth = image.width * zoom;
+            const drawHeight = image.height * zoom;
+            
+            ctx.drawImage(
+                image,
+                centerX - (drawWidth / 2) + offsetX,
+                centerY - (drawHeight / 2) + offsetY,
+                drawWidth,
+                drawHeight
+            );
+            
+            try {
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                const blob = await dataUrlToBlob(dataUrl);
+                
+                const record = getInstalledWallpaperRecordByRef(wallpaperId);
+                const recordId = record?.id || null;
+
+                // Save crop state to record
+                const cropState = { zoom, offsetX, offsetY };
+
+                const { installedRef } = await installWallpaperBlobLocally({
+                    id: recordId,
+                    theme,
+                    imageBlob: blob,
+                    originalImageBlob: newOriginalFile || record?.originalImageBlob || null,
+                    label: record?.label || USER_UPLOAD_WALLPAPER_GENERIC_LABEL,
+                    style: record?.style || null,
+                    sourceType: record?.sourceType || 'user-upload',
+                    cropState
+                });
+                
+                // Update selection and persist to storage
+                const selection = getWallpaperSelectionByTheme();
+                selection[theme] = installedRef;
+                setWallpaperSelectionByTheme(selection);
+                cacheWallpaperSelectionLocally(selection);
+                await saveWallpaperSelectionToStorage(selection);
+                
+                await ensureInstalledWallpaperBinaryCache(theme, installedRef);
+                
+                showGlassToast('Wallpaper background updated.', 'success', 3200);
+                closeWallpaperCropEditor();
+                applyActiveThemeWallpaper();
+                renderWallpaperPopup({ preserveScroll: true });
+            } catch (error) {
+                console.error('Failed to save wallpaper:', error);
+                showGlassToast('Failed to save wallpaper.', 'warning', 3200);
             }
         }
 
@@ -1865,9 +2192,14 @@
 
         async function convertWallpaperUploadFileToJpegDataUrl(
             file,
-            quality = LOCAL_WALLPAPER_UPLOAD_JPEG_QUALITY
+            quality = LOCAL_WALLPAPER_UPLOAD_JPEG_QUALITY,
+            shouldCrop = true
         ) {
             const sourceDataUrl = await readWallpaperUploadFileAsDataUrl(file);
+            if (!shouldCrop) {
+                return sourceDataUrl;
+            }
+
             const image = await loadWallpaperUploadImageFromDataUrl(sourceDataUrl);
             const sourceWidth = image.naturalWidth || image.width;
             const sourceHeight = image.naturalHeight || image.height;
@@ -2645,6 +2977,26 @@
                 return svg;
             }
 
+            if (action === 'crop') {
+                svg.appendChild(make('path', {
+                    d: 'M6.13 1L6 16a2 2 0 0 0 2 2h15',
+                    fill: 'none',
+                    stroke: 'currentColor',
+                    'stroke-width': '2.5',
+                    'stroke-linecap': 'round',
+                    'stroke-linejoin': 'round'
+                }));
+                svg.appendChild(make('path', {
+                    d: 'M1 6.13L16 6a2 2 0 0 1 2 2v15',
+                    fill: 'none',
+                    stroke: 'currentColor',
+                    'stroke-width': '2.5',
+                    'stroke-linecap': 'round',
+                    'stroke-linejoin': 'round'
+                }));
+                return svg;
+            }
+
             if (action === 'restore') {
                 svg.appendChild(make('path', {
                     d: 'M21 8v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8',
@@ -3021,6 +3373,7 @@
             const downloadedEntries = [];
             const starterEntries = [];
             const archivedEntries = [];
+            const videoEntries = [];
             let selectedPresent = false;
 
             for (const rawEntry of Array.isArray(themeEntries) ? themeEntries : []) {
@@ -3031,7 +3384,12 @@
                     selectedPresent = true;
                 }
 
-                if (entry.isInstalled) {
+                const isVideo = (entry.file && /\.(mp4|webm|ogg)$/i.test(entry.file))
+                    || (entry.mimeType && entry.mimeType.startsWith('video/'));
+
+                if (isVideo) {
+                    videoEntries.push(entry);
+                } else if (entry.isInstalled) {
                     if (entry.isArchived) {
                         archivedEntries.push(entry);
                     } else if (isUserUploadWallpaperEntry(entry)) {
@@ -3055,7 +3413,12 @@
             ) {
                 const syntheticEntry = createSyntheticWallpaperEntry(theme, selectedFile);
                 if (syntheticEntry) {
-                    if (syntheticEntry.isArchived) {
+                    const isVideo = (syntheticEntry.file && /\.(mp4|webm|ogg)$/i.test(syntheticEntry.file))
+                        || (syntheticEntry.mimeType && syntheticEntry.mimeType.startsWith('video/'));
+
+                    if (isVideo) {
+                        videoEntries.unshift(syntheticEntry);
+                    } else if (syntheticEntry.isArchived) {
                         archivedEntries.unshift(syntheticEntry);
                     } else if (isUserUploadWallpaperEntry(syntheticEntry)) {
                         userUploadEntries.unshift(syntheticEntry);
@@ -3069,7 +3432,8 @@
                 userUploadEntries,
                 downloadedEntries,
                 starterEntries,
-                archivedEntries
+                archivedEntries,
+                videoEntries
             };
         }
 
@@ -3131,8 +3495,29 @@
             if (isDefault) {
                 preview.textContent = 'Default';
             } else {
+                const isVideo = file && (
+                    /\.(mp4|webm|ogg)$/i.test(file) ||
+                    (isInstalledWallpaperRef(file) && getInstalledWallpaperRecordByRef(file)?.mimeType?.startsWith('video/'))
+                );
+                
                 const resolvedPreviewSource = previewSource || (isInstalledWallpaperRef(file) ? null : file);
-                if (resolvedPreviewSource) {
+                if (isVideo) {
+                    preview.classList.add('video-preview');
+                    const videoIcon = document.createElement('div');
+                    videoIcon.className = 'video-icon-overlay';
+                    videoIcon.innerHTML = `
+                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    `;
+                    preview.appendChild(videoIcon);
+                    
+                    if (resolvedPreviewSource) {
+                        // We can't easily show a video frame in CSS background-image
+                        // but if we had a thumbnail, we'd use it here.
+                        // For now, let's just keep the icon.
+                    }
+                } else if (resolvedPreviewSource) {
                     preview.style.backgroundImage = toCssUrlValue(resolvedPreviewSource);
                 }
             }
@@ -3155,6 +3540,15 @@
                         file,
                         label
                     });
+                    
+                    const installedRecord = getInstalledWallpaperRecordByRef(file);
+                    if (isUserUploadWallpaperSourceType(installedRecord?.sourceType)) {
+                        appendWallpaperActionButton(actions, {
+                            action: 'crop',
+                            file,
+                            label
+                        });
+                    }
                 }
                 appendWallpaperActionButton(actions, {
                     action: isArchived ? 'restore' : 'archive',
@@ -3342,14 +3736,30 @@
                 userUploadEntries,
                 downloadedEntries,
                 starterEntries,
-                archivedEntries
+                archivedEntries,
+                videoEntries
             } = buildWallpaperDisplayGroups(activeTheme, selectedFile, themeEntries);
             const starterSectionEntries = buildStarterWallpaperSectionEntries(starterEntries);
-            const installedVisibleEntriesCount = userUploadEntries.length + downloadedEntries.length;
+            const installedVisibleEntriesCount = userUploadEntries.length + downloadedEntries.length + videoEntries.length;
 
             updateThemeModeToggle();
 
             wallpaperGrid.replaceChildren();
+
+            const videoSection = createWallpaperSectionElement({
+                title: 'Videos',
+                entries: videoEntries,
+                theme: activeTheme,
+                selectedFile,
+                collapsible: true,
+                open: wallpaperSectionDisclosureState.videos !== null
+                    ? wallpaperSectionDisclosureState.videos
+                    : true,
+                stateKey: 'videos'
+            });
+            if (videoSection) {
+                wallpaperGrid.appendChild(videoSection);
+            }
 
             const userUploadSection = createWallpaperSectionElement({
                 title: 'Your Wallpapers',
@@ -3475,7 +3885,34 @@
                 ? wallpaperStyleEditorState.draftStyle
                 : null;
             applyThemeStyleTokens(editorDraftStyle || resolvedStyle);
-            document.documentElement.style.setProperty('--ll-app-wallpaper-url', toCssUrlValue(wallpaperRenderSource));
+
+            const wallpaperVideo = document.getElementById('appWallpaperVideo');
+            const isVideo = wallpaperFile && (
+                /\.(mp4|webm|ogg)$/i.test(wallpaperFile) ||
+                (isInstalledWallpaperRef(wallpaperFile) && getInstalledWallpaperRecordByRef(wallpaperFile)?.mimeType?.startsWith('video/'))
+            );
+
+            if (isVideo && wallpaperRenderSource) {
+                document.documentElement.style.setProperty('--ll-app-wallpaper-url', 'none');
+                if (wallpaperVideo) {
+                    if (wallpaperVideo.src !== wallpaperRenderSource) {
+                        wallpaperVideo.src = wallpaperRenderSource;
+                        wallpaperVideo.load();
+                    }
+                    wallpaperVideo.style.display = 'block';
+                    wallpaperVideo.play().catch(error => {
+                        console.warn('Failed to autoplay video wallpaper:', error);
+                    });
+                }
+            } else {
+                document.documentElement.style.setProperty('--ll-app-wallpaper-url', toCssUrlValue(wallpaperRenderSource));
+                if (wallpaperVideo) {
+                    wallpaperVideo.style.display = 'none';
+                    wallpaperVideo.pause();
+                    wallpaperVideo.src = '';
+                }
+            }
+
             if (shouldCacheStyleLocally) {
                 cacheWallpaperStyleLocally();
             }
@@ -3561,15 +3998,11 @@
         async function saveWallpaperSelectionToStorage(selection) {
             if (typeof chrome === 'undefined' || !chrome.storage?.local) return;
             const writeRequestId = ++wallpaperSelectionStorageWriteRequestId;
-            const previousSharedSelection = await readSharedWallpaperSelectionFromStorage();
             if (writeRequestId !== wallpaperSelectionStorageWriteRequestId) {
                 return false;
             }
-            const syncSafeSelection = typeof buildSyncSafeWallpaperSelection === 'function'
-                ? buildSyncSafeWallpaperSelection(selection, previousSharedSelection)
-                : selection;
             const storagePayload = {
-                [wallpaperStorageKey]: syncSafeSelection
+                [wallpaperStorageKey]: selection
             };
             try {
                 const accountStatePatch = await buildWallpaperAccountLocalStateStoragePatch({
@@ -3628,8 +4061,13 @@
                 return false;
             }
 
-            if (typeof selectedFile?.type === 'string' && selectedFile.type && !selectedFile.type.startsWith('image/')) {
-                showGlassToast('Please choose an image file to upload.', 'warning', 3200);
+            if (
+                typeof selectedFile?.type === 'string' 
+                && selectedFile.type 
+                && !selectedFile.type.startsWith('image/')
+                && !selectedFile.type.startsWith('video/')
+            ) {
+                showGlassToast('Please choose an image or video file to upload.', 'warning', 3200);
                 if (uploadInput && 'value' in uploadInput) {
                     uploadInput.value = '';
                 }
@@ -3639,18 +4077,27 @@
             let installedRef = null;
 
             try {
-                const jpegDataUrl = await convertWallpaperUploadFileToJpegDataUrl(selectedFile);
                 const activeTheme = normalizeThemeMode(getThemeMode());
-                const [imageBlob, initialDraftStyle] = await Promise.all([
-                    dataUrlToBlob(jpegDataUrl),
-                    buildUserUploadWallpaperAutoStyleFromDataUrl(jpegDataUrl, activeTheme).catch((error) => {
+                const isVideo = (typeof selectedFile.type === 'string' && selectedFile.type.startsWith('video/'))
+                    || /\.(mp4|webm|ogg)$/i.test(selectedFile.name || '');
+                let wallpaperBlob;
+                let initialDraftStyle = null;
+
+                if (isVideo) {
+                    wallpaperBlob = selectedFile;
+                } else {
+                    const jpegDataUrl = await convertWallpaperUploadFileToJpegDataUrl(selectedFile, undefined, false); // Pass shouldCrop: false
+                    wallpaperBlob = await dataUrlToBlob(jpegDataUrl);
+                    initialDraftStyle = await buildUserUploadWallpaperAutoStyleFromDataUrl(jpegDataUrl, activeTheme).catch((error) => {
                         console.warn('Failed to auto-generate uploaded wallpaper style:', error);
                         return null;
-                    })
-                ]);
+                    });
+                }
+
                 const installResult = await installWallpaperBlobLocally({
                     theme: activeTheme,
-                    imageBlob,
+                    imageBlob: wallpaperBlob,
+                    originalImageBlob: isVideo ? null : selectedFile,
                     label: USER_UPLOAD_WALLPAPER_GENERIC_LABEL,
                     style: buildUserUploadWallpaperBaseStyle(activeTheme),
                     sourceType: localUserWallpaperSourceType || 'user-upload'
@@ -3724,7 +4171,13 @@
             persist = true,
             enforceAccountBoundary = false
         } = {}) {
-            const currentSelection = getWallpaperSelectionByTheme();
+            // If we are targeting a specific page, use its selection for comparison.
+            // Otherwise, use the global selection.
+            const targetPageId = typeof window !== 'undefined' ? window.wallpaperSelectionTargetPageId : null;
+            const currentSelection = getWallpaperSelectionByTheme({
+                ignorePageSpecific: !targetPageId
+            });
+            
             const { selection: reconciledSelection } = reconcileWallpaperSelection(selection, {
                 preserveHostedSelections: true
             });
@@ -3739,18 +4192,41 @@
             }
             if (selectionChanged) {
                 markWallpaperSelectionMutation(currentSelection, reconciledSelection);
-                setWallpaperSelectionByTheme(reconciledSelection);
+                
+                // If we are targeting a specific page (from settings), save it there
+                if (typeof window !== 'undefined' && window.wallpaperSelectionTargetPageId) {
+                    const targetPageId = window.wallpaperSelectionTargetPageId;
+                    // Do NOT clear window.wallpaperSelectionTargetPageId here, 
+                    // clear it at the very end of the function or in the persist block
+                    
+                    try {
+                        await savePageWallpaperSelectionToStorage(targetPageId, reconciledSelection);
+                    } catch (error) {
+                        console.error('Failed to save targeted page wallpaper selection:', error);
+                    }
+                } else {
+                    // Global selection
+                    setWallpaperSelectionByTheme(reconciledSelection);
+                }
             }
 
-            cacheWallpaperSelectionLocally(getWallpaperSelectionByTheme());
+            // Always cache the global selection locally for boot, NOT the page-specific one
+            cacheWallpaperSelectionLocally(getWallpaperSelectionByTheme({ ignorePageSpecific: true }));
             applyActiveThemeWallpaper();
             renderWallpaperPopup({ preserveScroll: true });
 
             if (persist && selectionChanged) {
-                try {
-                    await saveWallpaperSelectionToStorage(getWallpaperSelectionByTheme());
-                } catch (error) {
-                    console.error('Failed to save wallpaper selection:', error);
+                // Only save to global storage if we are NOT targeting a specific page
+                if (typeof window !== 'undefined' && window.wallpaperSelectionTargetPageId) {
+                    // Page-specific selection was already handled above
+                    window.wallpaperSelectionTargetPageId = null; // Clear it now
+                } else {
+                    try {
+                        // Ensure we save the global selection, not a page-specific one that might be active
+                        await saveWallpaperSelectionToStorage(getWallpaperSelectionByTheme({ ignorePageSpecific: true }));
+                    } catch (error) {
+                        console.error('Failed to save wallpaper selection:', error);
+                    }
                 }
             }
 
@@ -3798,7 +4274,14 @@
             returnFocusElement = null
         } = {}) {
             const normalizedTheme = normalizeThemeMode(theme);
-            const currentSelection = getWallpaperSelectionByTheme();
+            
+            // If we are targeting a specific page, use its selection as base.
+            // Otherwise, use the global selection as base.
+            const targetPageId = typeof window !== 'undefined' ? window.wallpaperSelectionTargetPageId : null;
+            const currentSelection = getWallpaperSelectionByTheme({ 
+                ignorePageSpecific: !targetPageId 
+            });
+            
             const nextSelection = {
                 dark: currentSelection.dark ?? null,
                 light: currentSelection.light ?? null
@@ -3887,6 +4370,13 @@
                             returnFocusElement: actionButton
                         });
                     }
+                } else if (wallpaperAction === 'crop') {
+                    const tileTheme = normalizeThemeMode(actionTile?.dataset?.wallpaperTheme || getThemeMode());
+                    openWallpaperCropEditor({
+                        wallpaperId: actionWallpaperId,
+                        theme: tileTheme
+                    });
+                    didHandleAction = true;
                 } else if (wallpaperAction === 'archive' || wallpaperAction === 'restore') {
                     didHandleAction = await setInstalledWallpaperArchivedState(
                         actionWallpaperId,
@@ -4288,6 +4778,13 @@
         }
 
         async function loadWallpaperSelectionFromStorage(prefetchedStorage = null) {
+            // Load global selections first
+            await loadGlobalWallpaperSelectionFromStorage(prefetchedStorage);
+            // Then load page-specific selections
+            await loadPageWallpaperSelectionsFromStorage(prefetchedStorage);
+        }
+
+        async function loadGlobalWallpaperSelectionFromStorage(prefetchedStorage = null) {
             let selectionFromStorage = null;
             let hasChromeSelection = false;
             let hasSharedChromeSelection = false;
@@ -4337,11 +4834,11 @@
                 preserveHostedSelections: true
             });
             setWallpaperSelectionByTheme(reconciledSelection);
-            cacheWallpaperSelectionLocally(getWallpaperSelectionByTheme());
+            cacheWallpaperSelectionLocally(getWallpaperSelectionByTheme({ ignorePageSpecific: true }));
 
             if (changed || !hasChromeSelection || (currentWallpaperUserId && !hasSharedChromeSelection)) {
                 try {
-                    await saveWallpaperSelectionToStorage(getWallpaperSelectionByTheme());
+                    await saveWallpaperSelectionToStorage(getWallpaperSelectionByTheme({ ignorePageSpecific: true }));
                 } catch (error) {
                     console.error('Failed to persist reconciled wallpaper selection:', error);
                 }
@@ -4357,6 +4854,45 @@
                     await ensureInstalledWallpaperBinaryCache(theme, selectedWallpaper);
                 }
             }));
+        }
+
+        async function loadPageWallpaperSelectionsFromStorage(prefetchedStorage = null) {
+            if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                try {
+                    const hasPrefetchedSelection = prefetchedStorage
+                        && typeof prefetchedStorage === 'object'
+                        && Object.prototype.hasOwnProperty.call(prefetchedStorage, pageWallpaperStorageKey);
+
+                    const result = hasPrefetchedSelection
+                        ? { [pageWallpaperStorageKey]: prefetchedStorage[pageWallpaperStorageKey] }
+                        : await chrome.storage.local.get(pageWallpaperStorageKey);
+
+                    if (result && result[pageWallpaperStorageKey]) {
+                        setPageWallpaperSelections(result[pageWallpaperStorageKey]);
+                    }
+                } catch (error) {
+                    console.error('Failed to load page wallpaper selections:', error);
+                }
+            }
+        }
+
+        async function savePageWallpaperSelectionToStorage(pageId, selection) {
+            const currentSelections = getPageWallpaperSelections() || {};
+            const allSelections = { ...currentSelections };
+            if (selection) {
+                allSelections[pageId] = selection;
+            } else {
+                delete allSelections[pageId];
+            }
+            setPageWallpaperSelections(allSelections);
+
+            if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+                try {
+                    await chrome.storage.local.set({ [pageWallpaperStorageKey]: allSelections });
+                } catch (error) {
+                    console.error('Failed to save page wallpaper selection:', error);
+                }
+            }
         }
 
         async function applyWebsiteWallpaperHandoffFromUrl() {
@@ -4597,7 +5133,7 @@
             }
         }
 
-        async function initializeWallpaperPreferences() {
+        async function initializeWallpaperPreferences(prefetchedStorage = null) {
             await loadWallpaperCatalog();
             // if (!getWallpaperAccountScopeUserId()) {
             //     applyLoggedOutDefaultThemeUi();
@@ -4606,15 +5142,15 @@
             // }
             await seedNewUserWallpaperDefaultIfPending();
             await seedPackagedDefaultForEmptyLocalWallpaperState();
-            await loadThemeModeFromStorage(null, {
+            await loadThemeModeFromStorage(prefetchedStorage, {
                 allowStorageThemeMode: true, // Boolean(getWallpaperAccountScopeUserId()),
                 allowCachedThemeMode: true,
                 persistMissingThemeMode: true // Boolean(getWallpaperAccountScopeUserId())
             });
             await loadInstalledWallpaperCatalog({ apply: false });
-            await loadWallpaperSelectionFromStorage();
+            await loadWallpaperSelectionFromStorage(prefetchedStorage);
             if (typeof loadWallpaperStyleOverridesFromStorage === 'function') {
-                await loadWallpaperStyleOverridesFromStorage();
+                await loadWallpaperStyleOverridesFromStorage(prefetchedStorage);
             }
             await migrateHostedWallpaperSelections({
                 allowNetwork: false,
@@ -4854,6 +5390,7 @@
             loadHostedWallpaperCatalog,
             loadInstalledWallpaperCatalog,
             loadWallpaperSelectionFromStorage,
+            savePageWallpaperSelectionToStorage,
             loadWallpaperStyleOverridesFromStorage,
             initializeWallpaperPreferences,
             handleWallpaperPopupOpened,

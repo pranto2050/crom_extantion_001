@@ -353,6 +353,7 @@ const USAGE_TRACKING_STORAGE_KEY = 'usageTrackingEnabled';
 
 // Clock state
 let showClockEnabled = false;
+let autoBoardColorEnabled = false;
 let clockIntervalId = null;
 
 // Smart Folders state
@@ -395,6 +396,7 @@ const expandedLargeBoardIds = new Set();
 // Theme mode state - dark (default) or light
 let themeMode = 'dark';
 const WALLPAPER_STORAGE_KEY = 'wallpaperSelectionByTheme';
+const PAGE_WALLPAPERS_STORAGE_KEY = 'pageWallpaperSelections';
 const WALLPAPER_LOCAL_CACHE_KEY = 'lumilist_wallpaper_selection';
 const WALLPAPER_STYLE_LOCAL_CACHE_KEY = 'lumilist_wallpaper_style_by_theme';
 const WALLPAPER_BINARY_CACHE_LOCAL_KEY = 'lumilist_wallpaper_binary_cache_v1';
@@ -511,6 +513,15 @@ let bundledWallpaperCatalogByTheme = { dark: [], light: [] };
 let installedWallpaperCatalogByTheme = { dark: [], light: [] };
 let wallpaperCatalogByTheme = { dark: [], light: [] };
 let wallpaperSelectionByTheme = { dark: null, light: null };
+let pageWallpaperSelections = {};
+
+function getWallpaperSelectionByTheme(options = {}) {
+    const { ignorePageSpecific = false } = options;
+    if (!ignorePageSpecific && typeof currentPageId !== 'undefined' && currentPageId && pageWallpaperSelections && pageWallpaperSelections[currentPageId]) {
+        return pageWallpaperSelections[currentPageId];
+    }
+    return wallpaperSelectionByTheme;
+}
 let wallpaperThemeDefaults = createEmptyWallpaperThemeDefaults();
 let wallpaperStyleOverridesByTheme = createEmptyWallpaperStyleOverrideState();
 let wallpaperNewUserDefaultConfig = createEmptyNewUserWallpaperDefaultConfig();
@@ -539,6 +550,7 @@ const SHOW_BOOKMARK_NOTES_STORAGE_KEY = 'showBookmarkNotes';
 const CLOSE_TABS_AFTER_SAVE_ALL_STORAGE_KEY = 'closeTabsAfterSaveAllTabs';
 const FLOATING_CONTROLS_COLLAPSED_STORAGE_KEY = 'floatingControlsCollapsedEnabled';
 const SHOW_CLOCK_STORAGE_KEY = 'showClockEnabled';
+const AUTO_BOARD_COLOR_STORAGE_KEY = 'autoBoardColorEnabled';
 const FONT_COLOR_STORAGE_KEY = 'fontColor';
 const FONT_COLOR_LOCAL_CACHE_KEY = 'lumilist_font_color';
 const CLOCK_POSITION_STORAGE_KEY = 'clockPosition';
@@ -569,9 +581,11 @@ const STARTUP_STORAGE_KEYS = Object.freeze([
     FREQUENTLY_USED_STORAGE_KEY,
     PIN_FAVORITES_STORAGE_KEY,
     FONT_COLOR_STORAGE_KEY,
+    AUTO_BOARD_COLOR_STORAGE_KEY,
     'largeBoardCollapseEnabled',
     LARGE_BOARD_VISIBLE_LIMIT_STORAGE_KEY,
-    LARGE_BOARD_EXPANDED_IDS_STORAGE_KEY
+    LARGE_BOARD_EXPANDED_IDS_STORAGE_KEY,
+    PAGE_WALLPAPERS_STORAGE_KEY
 ]);
 const BOOKMARK_DESCRIPTION_MAX_LENGTH = 2000;
 
@@ -1227,6 +1241,31 @@ async function trackBookmarkVisit(bookmarkId) {
         }
     } catch (error) {
         console.error('Failed to track bookmark visit:', error);
+    }
+}
+
+async function toggleBookmarkPin(bookmarkId) {
+    if (!bookmarkId) return;
+    try {
+        const bookmark = await db.bookmarks.get(bookmarkId);
+        if (bookmark) {
+            const now = new Date().toISOString();
+            const updateData = {
+                isPinned: !bookmark.isPinned,
+                updatedAt: now
+            };
+            await db.bookmarks.update(bookmarkId, updateData);
+            
+            // Re-render boards to reflect pin changes
+            await loadBoardsFromDatabase();
+            
+            // Broadcast change for other tabs
+            if (typeof broadcastDataChange === 'function') {
+                broadcastDataChange('toggleBookmarkPin');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to toggle bookmark pin:', error);
     }
 }
 
@@ -2350,7 +2389,8 @@ const SEARCH_SCOPE_OPTIONS = Object.freeze({
     BOARD: 'board',
     TITLE: 'title',
     URL: 'url',
-    NOTE: 'note'
+    NOTE: 'note',
+    TAGS: 'tags'
 });
 const SEARCH_SCOPE_VALUES = Object.freeze(Object.values(SEARCH_SCOPE_OPTIONS));
 const SEARCH_MATCH_MODE_OPTIONS = Object.freeze({
@@ -2386,7 +2426,8 @@ const searchFeature = featureFactories.search({
     loadBoardsFromDatabase,
     getCurrentPageId: () => currentPageId,
     getIncognitoModeEnabled: () => incognitoModeEnabled,
-    getOpenLinksInNewTab: () => openLinksInNewTab
+    getOpenLinksInNewTab: () => openLinksInNewTab,
+    trackBookmarkVisit
 });
 
 const {
@@ -2413,9 +2454,20 @@ const wallpaperFeature = featureFactories.wallpaper({
         wallpaperCatalogByTheme = value;
     },
     setBundledWallpaperCatalogState,
-    getWallpaperSelectionByTheme: () => wallpaperSelectionByTheme,
+    getWallpaperSelectionByTheme,
     setWallpaperSelectionByTheme: (value) => {
         wallpaperSelectionByTheme = value;
+    },
+    getCurrentPageId: () => currentPageId,
+    getPageWallpaperSelections: () => pageWallpaperSelections,
+    setPageWallpaperSelections: (value) => {
+        pageWallpaperSelections = value || {};
+    },
+    pageWallpaperStorageKey: PAGE_WALLPAPERS_STORAGE_KEY,
+    savePageWallpaperSelectionToStorage: (pageId, selection) => {
+        if (wallpaperFeature && typeof wallpaperFeature.savePageWallpaperSelectionToStorage === 'function') {
+            return wallpaperFeature.savePageWallpaperSelectionToStorage(pageId, selection);
+        }
     },
     getWallpaperThemeDefaults: () => wallpaperThemeDefaults,
     setWallpaperThemeDefaults: (value) => {
@@ -2552,7 +2604,7 @@ const {
 let wallpaperPreferencesInitializationPromise = null;
 let wallpaperPreferencesInitializationScopeUserId = null;
 
-function ensureWallpaperPreferencesInitialized() {
+function ensureWallpaperPreferencesInitialized(prefetchedStorage = null) {
     const currentWallpaperScopeUserId = getWallpaperAccountScopeUserId() || null;
     if (
         wallpaperPreferencesInitializationPromise
@@ -2564,7 +2616,7 @@ function ensureWallpaperPreferencesInitialized() {
     wallpaperPreferencesInitializationScopeUserId = currentWallpaperScopeUserId;
     wallpaperPreferencesInitializationPromise = (async () => {
         try {
-            await initializeWallpaperPreferences();
+            await initializeWallpaperPreferences(prefetchedStorage);
         } catch (error) {
             wallpaperPreferencesInitializationPromise = null;
             wallpaperPreferencesInitializationScopeUserId = null;
@@ -2707,6 +2759,9 @@ function initMorphActionHandler() {
                     }
                     break;
                 // Bookmark actions
+                case 'pin-bookmark':
+                    if (bookmarkId) await toggleBookmarkPin(bookmarkId);
+                    break;
                 case 'edit-bookmark':
                     if (bookmarkId) await openEditBookmarkModal(bookmarkId);
                     break;
@@ -3530,6 +3585,33 @@ function clampNumber(value, min, max, fallback) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return fallback;
     return Math.min(max, Math.max(min, numeric));
+}
+
+/**
+ * Generates a random vibrant hex color.
+ * Ensures the color is not too dark or too light for good contrast.
+ */
+function generateRandomColor() {
+    const hue = Math.floor(Math.random() * 360);
+    // Vibrant colors: high saturation (70-90%) and medium-high brightness (60-80%)
+    const saturation = 70 + Math.floor(Math.random() * 20);
+    const lightness = 60 + Math.floor(Math.random() * 10);
+    
+    return hslToHex(hue, saturation, lightness);
+}
+
+/**
+ * Helper to convert HSL to Hex
+ */
+function hslToHex(h, s, l) {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = n => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
 }
 
 function normalizeHexColor(value, fallback) {
@@ -5299,15 +5381,18 @@ async function broadcastInstalledWallpaperCatalogVersionChange(version = new Dat
 }
 
 async function installWallpaperBlobLocally({
+    id = null,
     theme,
     sourceUrl = null,
     imageBlob,
+    originalImageBlob = null,
     remoteId = null,
     label = null,
     style = null,
     thumbnailUrl = null,
     version = null,
-    sourceType = null
+    sourceType = null,
+    cropState = null
 }) {
     const normalizedTheme = normalizeThemeMode(theme);
     const normalizedSourceType = typeof sourceType === 'string' && sourceType.trim()
@@ -5326,7 +5411,7 @@ async function installWallpaperBlobLocally({
         throw new Error('Wallpaper install requires a non-empty image blob.');
     }
 
-    const recordId = findExistingInstalledWallpaperRecordId({
+    const recordId = id || findExistingInstalledWallpaperRecordId({
         theme: normalizedTheme,
         remoteId,
         sourceUrl: normalizedSourceUrl
@@ -5358,11 +5443,14 @@ async function installWallpaperBlobLocally({
         mimeType: imageBlob.type || null,
         byteSize: imageBlob.size,
         imageBlob,
+        originalImageBlob: originalImageBlob instanceof Blob ? originalImageBlob : (existingRecord?.originalImageBlob || null),
+        cropState: cropState || existingRecord?.cropState || null,
         archivedAt: null,
         installedAt: existingRecord?.installedAt || now,
         updatedAt: now
     });
 
+    clearCachedWallpaperBinaryDataUrl(normalizedTheme, installedRef);
     await loadInstalledWallpaperCatalogFromDatabase();
     await broadcastInstalledWallpaperCatalogVersionChange(now);
 
@@ -5968,7 +6056,9 @@ function getResolvedWallpaperStyleForTheme(theme, {
             : defaultThemeStyle;
     }
 
-    const selectedFile = wallpaperSelectionByTheme[normalizedTheme] || null;
+    // Use the active selection (which may be page-specific) instead of the global wallpaperSelectionByTheme
+    const activeSelection = getWallpaperSelectionByTheme();
+    const selectedFile = activeSelection[normalizedTheme] || null;
     const selectedEntry = selectedFile
         ? findWallpaperCatalogEntry(normalizedTheme, selectedFile)
         : null;
@@ -7182,103 +7272,67 @@ async function updateBoardBookmarks(boardId) {
         const existingBookmarksList = boardElement.querySelector('.board-links');
         if (!existingBookmarksList) return;
 
-        // Clear existing bookmarks
-        existingBookmarksList.innerHTML = '';
-
-        // Re-render bookmarks
-        for (const bookmark of visibleBookmarks) {
-            const listItem = document.createElement('li');
-            listItem.draggable = true;
-            listItem.setAttribute('data-bookmark-id', bookmark.id);
-
-            const link = document.createElement('a');
-            link.href = bookmark.url;
-
-            // Create content container for bookmark
-            const bookmarkContent = document.createElement('div');
-            bookmarkContent.className = 'bookmark-content';
-
-            // Create and add favicon (await cache check for faster load)
-            const favicon = await createFaviconElement(bookmark.url, bookmark.title);
-            bookmarkContent.appendChild(favicon);
-
-            // Create text stack for title + optional note
-            const bookmarkText = document.createElement('span');
-            bookmarkText.className = 'bookmark-text';
-
-            // Create text span for the title
-            const titleSpan = document.createElement('span');
-            titleSpan.className = 'bookmark-title';
-            titleSpan.textContent = bookmark.title;
-            bookmarkText.appendChild(titleSpan);
-
-            const noteText = getBookmarkNoteText(bookmark.description);
-            if (noteText) {
-                const noteSpan = document.createElement('span');
-                noteSpan.className = 'bookmark-note';
-                noteSpan.textContent = noteText;
-                bookmarkText.appendChild(noteSpan);
-            }
-
-            bookmarkContent.appendChild(bookmarkText);
-
-            // Create action buttons container
-            const bookmarkActions = document.createElement('div');
-            bookmarkActions.className = 'bookmark-actions';
-
-            // Create edit button for bookmark
-            const bookmarkEditBtn = document.createElement('button');
-            bookmarkEditBtn.className = 'bookmark-edit-btn';
-            bookmarkEditBtn.innerHTML = BOOKMARK_EDIT_ICON;
-            bookmarkEditBtn.title = 'Edit bookmark';
-            bookmarkEditBtn.addEventListener('click', async function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                await openEditBookmarkModal(bookmark.id);
+        // Re-render bookmarks using component
+        const bookmarksHTML = visibleBookmarks
+            .map(bookmark => BookmarkComponent.render(bookmark))
+            .join('');
+        
+        // Use Idiomorph if available for smoother update, otherwise innerHTML
+        if (window.Idiomorph) {
+            window.Idiomorph.morph(existingBookmarksList, `<ul class="board-links">${bookmarksHTML}</ul>`, {
+                morphStyle: 'innerHTML'
             });
-
-            // Create delete button for bookmark
-            const bookmarkDeleteBtn = document.createElement('button');
-            bookmarkDeleteBtn.className = 'bookmark-delete-btn';
-            bookmarkDeleteBtn.innerHTML = BOOKMARK_DELETE_ICON;
-            bookmarkDeleteBtn.title = 'Delete bookmark';
-            bookmarkDeleteBtn.addEventListener('click', async function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                await showDeleteConfirmation(bookmark.title, 'bookmark', bookmark.id);
-            });
-
-            bookmarkActions.appendChild(bookmarkEditBtn);
-            bookmarkActions.appendChild(bookmarkDeleteBtn);
-
-            link.appendChild(bookmarkContent);
-            link.appendChild(bookmarkActions);
-
-            listItem.appendChild(link);
-            existingBookmarksList.appendChild(listItem);
+        } else {
+            existingBookmarksList.innerHTML = bookmarksHTML;
         }
 
-        // Keep the board-level expand/collapse control in sync with the latest bookmark count/state.
-        const existingToggleButton = boardElement.querySelector('.board-show-remaining-btn');
+        // Keep the board-level expand/collapse control in sync
+        let existingToggleButton = boardElement.querySelector('.board-show-remaining-btn');
+        
         if (bookmarkToggleControl) {
-            const toggleButton = existingToggleButton || document.createElement('button');
-            toggleButton.className = 'board-show-remaining-btn';
-            toggleButton.textContent = bookmarkToggleControl.label;
-            toggleButton.setAttribute('data-action', bookmarkToggleControl.action);
-            toggleButton.setAttribute('data-board-id', boardId);
-            if (!existingToggleButton) {
-                boardElement.appendChild(toggleButton);
+            const buttonHTML = `
+                <button class="board-show-remaining-btn" 
+                        data-action="${bookmarkToggleControl.action}" 
+                        data-board-id="${escapeHTML(boardId)}">
+                    ${bookmarkToggleControl.label}
+                </button>
+            `.trim();
+
+            if (existingToggleButton) {
+                if (window.Idiomorph) {
+                    window.Idiomorph.morph(existingToggleButton, buttonHTML);
+                } else {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = buttonHTML;
+                    existingToggleButton.replaceWith(temp.firstChild);
+                }
+            } else {
+                const temp = document.createElement('div');
+                temp.innerHTML = buttonHTML;
+                boardElement.appendChild(temp.firstChild);
             }
         } else if (existingToggleButton) {
             existingToggleButton.remove();
         }
 
+        // Initialize favicons for new elements
+        if (typeof populateFavicons === 'function') {
+            await populateFavicons();
+        }
+
         // Reattach drag-drop listeners to the newly created bookmark elements
-        attachDragDropListeners();
+        if (typeof attachDragDropListeners === 'function') {
+            attachDragDropListeners();
+        }
 
         // Apply open in new tab setting to newly created links
-        applyOpenInNewTabSetting(openLinksInNewTab);
-        await refreshSearchIfOpen();
+        if (typeof applyOpenInNewTabSetting === 'function') {
+            applyOpenInNewTabSetting(openLinksInNewTab);
+        }
+
+        if (typeof refreshSearchIfOpen === 'function') {
+            await refreshSearchIfOpen();
+        }
 
     } catch (error) {
         console.error('Failed to update board bookmarks:', error);
@@ -8359,8 +8413,18 @@ async function openEditBoardModal(boardId) {
         // Store current board ID
         currentBoardToEdit = boardId;
 
-        // Populate form field with current name
+        // Populate form fields with current values
         document.getElementById('editBoardName').value = board.name;
+
+        const colorInput = document.getElementById('editBoardColor');
+        const defaultColorToggle = document.getElementById('editBoardUseDefaultColor');
+        const hasCustomColor = typeof board.color === 'string' && board.color.trim() !== '';
+
+        colorInput.value = normalizeHexColor(hasCustomColor ? board.color : '#ffffff', '#ffffff');
+        if (defaultColorToggle) {
+            defaultColorToggle.checked = !hasCustomColor;
+        }
+        colorInput.disabled = !!defaultColorToggle?.checked;
 
         // Show modal
         const modal = document.getElementById('editBoardModal');
@@ -8382,22 +8446,37 @@ function closeEditBoardModal() {
     currentBoardToEdit = null;
 
     // Reset form
-    document.getElementById('editBoardForm').reset();
+    const form = document.getElementById('editBoardForm');
+    form.reset();
+
+    const colorInput = document.getElementById('editBoardColor');
+    const defaultColorToggle = document.getElementById('editBoardUseDefaultColor');
+    if (colorInput) {
+        colorInput.disabled = false;
+        colorInput.value = '#ffffff';
+    }
+    if (defaultColorToggle) {
+        defaultColorToggle.checked = false;
+    }
 }
 
-// Update board name in database
-// FIX [Issue #5]: Use proper sync mechanism to ensure board renames sync to server
-async function updateBoardName(boardId, newName) {
+// Update board details in database
+async function updateBoardDetails(boardId, newName, newColor) {
     // Block in read-only mode
     if (!canModify()) return;
 
     try {
         const trimmedName = newName.trim();
+        const normalizedColor = typeof newColor === 'string' && newColor.trim() !== ''
+            ? normalizeHexColor(newColor, '#ffffff')
+            : null;
+        
         const updateResult = await updateBoard(boardId, {
-            name: trimmedName
+            name: trimmedName,
+            color: normalizedColor
         }, {
-            historyKind: 'board_rename',
-            historyLabel: `Rename board to "${trimmedName}"`
+            historyKind: 'board_edit',
+            historyLabel: `Edit board "${trimmedName}"`
         });
 
         if (!updateResult) {
@@ -8405,19 +8484,26 @@ async function updateBoardName(boardId, newName) {
             return;
         }
 
-        // Update the board title in DOM immediately (before network call for instant feedback)
+        // Update the board title and color in DOM immediately
         const boardElement = document.querySelector(`[data-board-id="${boardId}"]`);
         if (boardElement) {
             const titleTextElement = boardElement.querySelector('.board-title-text');
             if (titleTextElement) {
                 titleTextElement.textContent = trimmedName;
             }
+            if (normalizedColor) {
+                boardElement.style.setProperty('--board-custom-color', normalizedColor);
+                boardElement.classList.add('has-custom-color');
+            } else {
+                boardElement.style.removeProperty('--board-custom-color');
+                boardElement.classList.remove('has-custom-color');
+            }
         }
         await refreshSearchIfOpen();
 
     } catch (error) {
-        console.error('Failed to update board name:', error);
-        showGlassToast('Failed to update board name. Please try again.', 'error');
+        console.error('Failed to update board details:', error);
+        showGlassToast('Failed to update board. Please try again.', 'error');
     }
 }
 
@@ -8488,7 +8574,8 @@ async function createNewBoard(name, description, columnIndex = null) {
             columnIndex: targetColumn,
             order: maxOrder,
             description: description ? description.trim() : null,
-            pageId: currentPageId // Associate board with current page
+            pageId: currentPageId, // Associate board with current page
+            color: autoBoardColorEnabled ? generateRandomColor() : null
         };
 
         // Add to database using wrapper (auto-syncs to server)
@@ -8539,6 +8626,110 @@ function updateSettingsVersionInfo() {
 }
 
 // Open settings modal
+/**
+ * Populates the page selection dropdown in the Customize Background settings section.
+ */
+async function populateCustomizeBackgroundPageSelect() {
+    const select = document.getElementById('customizeBackgroundPageSelect');
+    if (!select) return;
+
+    try {
+        const pages = await db.pages.filter(p => !p.deletedAt).sortBy('order');
+        const currentOptions = Array.from(select.options).map(opt => opt.value);
+        const newOptions = pages.map(p => p.id);
+
+        // Only update if the options have changed
+        if (JSON.stringify(currentOptions) === JSON.stringify(newOptions)) {
+            updateResetBackgroundButtonVisibility();
+            return;
+        }
+
+        select.innerHTML = '';
+        pages.forEach(page => {
+            const option = document.createElement('option');
+            option.value = page.id;
+            option.textContent = page.name || 'Untitled Page';
+            if (page.id === currentPageId) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+
+        updateResetBackgroundButtonVisibility();
+    } catch (error) {
+        console.error('Failed to populate customize background page select:', error);
+    }
+}
+
+/**
+ * Updates the visibility of the "Reset to Global" button based on the selected page's background.
+ */
+function updateResetBackgroundButtonVisibility() {
+    const select = document.getElementById('customizeBackgroundPageSelect');
+    const resetBtn = document.getElementById('resetPageBackgroundBtn');
+    if (!select || !resetBtn) return;
+
+    const selectedPageId = select.value;
+    const selections = pageWallpaperSelections || {};
+    
+    if (selections[selectedPageId]) {
+        resetBtn.style.display = 'block';
+    } else {
+        resetBtn.style.display = 'none';
+    }
+}
+
+/**
+ * Handles the "Change Background" button click for a specific page.
+ */
+async function handleChangePageBackgroundClick() {
+    const select = document.getElementById('customizeBackgroundPageSelect');
+    if (!select) return;
+
+    const selectedPageId = select.value;
+    if (!selectedPageId) return;
+
+    // Set a global flag or context so the wallpaper feature knows we are selecting for a specific page
+    window.wallpaperSelectionTargetPageId = selectedPageId;
+
+    // Open the wallpaper popup
+    if (typeof openWallpaperPopup === 'function') {
+        openWallpaperPopup();
+        // Close settings modal to show the wallpaper popup clearly
+        closeSettingsModal();
+    }
+}
+
+/**
+ * Handles the "Reset to Global" button click for a specific page.
+ */
+async function handleResetPageBackgroundClick() {
+    const select = document.getElementById('customizeBackgroundPageSelect');
+    if (!select) return;
+
+    const selectedPageId = select.value;
+    if (!selectedPageId) return;
+
+    try {
+        if (wallpaperFeature && typeof wallpaperFeature.savePageWallpaperSelectionToStorage === 'function') {
+            await wallpaperFeature.savePageWallpaperSelectionToStorage(selectedPageId, null);
+            
+            // If the reset page is the current page, apply the wallpaper immediately
+            if (selectedPageId === currentPageId) {
+                if (typeof applyActiveThemeWallpaper === 'function') {
+                    applyActiveThemeWallpaper();
+                }
+            }
+            
+            updateResetBackgroundButtonVisibility();
+            showGlassToast('Background reset to global default', 'info');
+        }
+    } catch (error) {
+        console.error('Failed to reset page background:', error);
+        showGlassToast('Failed to reset background', 'error');
+    }
+}
+
 async function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
 
@@ -8562,6 +8753,7 @@ async function openSettingsModal() {
     updateFloatingControlsCollapsedToggle();
     updateLargeBoardCollapseToggle();
     updateFontColorSettingControl();
+    populateCustomizeBackgroundPageSelect();
     loadCloseTabsAfterSaveAllTabsSetting().catch((error) => {
         console.error('Failed to load close-tabs-after-save-all setting for settings modal:', error);
     });
@@ -10779,6 +10971,43 @@ function applyTruncateTitlesSetting(truncateEnabled) {
     }
 }
 
+// Load Automatic Board Color setting from storage
+async function loadAutoBoardColorSetting(prefetchedStorage = null) {
+    try {
+        const result = prefetchedStorage && typeof prefetchedStorage === 'object'
+            ? prefetchedStorage
+            : await chrome.storage.local.get([AUTO_BOARD_COLOR_STORAGE_KEY]);
+        
+        autoBoardColorEnabled = result[AUTO_BOARD_COLOR_STORAGE_KEY] === true;
+
+        // Update the toggle checkbox to match
+        const toggle = document.getElementById('autoBoardColorToggle');
+        if (toggle) {
+            toggle.checked = autoBoardColorEnabled;
+        }
+    } catch (error) {
+        console.error('Failed to load auto board color setting:', error);
+    }
+}
+
+// Handle Automatic Board Color toggle change
+async function handleAutoBoardColorToggle(event) {
+    if (!canMutateAccountScopedPreferences()) {
+        await loadAutoBoardColorSetting();
+        return;
+    }
+
+    autoBoardColorEnabled = event.target.checked;
+
+    try {
+        // Save the setting
+        await chrome.storage.local.set({ [AUTO_BOARD_COLOR_STORAGE_KEY]: autoBoardColorEnabled });
+        showGlassToast(autoBoardColorEnabled ? 'Automatic board colors enabled' : 'Automatic board colors disabled', 'info');
+    } catch (error) {
+        console.error('Failed to save auto board color setting:', error);
+    }
+}
+
 // Load clock setting from storage and apply it
 async function loadShowClockSetting(prefetchedStorage = null) {
     try {
@@ -11515,7 +11744,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         void (async () => {
             try {
-                await ensureWallpaperPreferencesInitialized();
+                await ensureWallpaperPreferencesInitialized(startupStorage);
                 await applyWebsiteWallpaperHandoffFromUrl();
             } catch (error) {
                 console.error('Deferred wallpaper startup initialization failed:', error);
@@ -12022,6 +12251,7 @@ function setupModalEventListeners() {
 
         const formData = new FormData(editBoardForm);
         const name = formData.get('name');
+        const color = document.getElementById('editBoardUseDefaultColor')?.checked ? null : formData.get('color');
 
         // Validate required fields
         if (!name || name.trim() === '') {
@@ -12032,9 +12262,17 @@ function setupModalEventListeners() {
         // Close modal immediately; run async updates in the background
         closeEditBoardModal();
 
-        // Update the board name
-        await updateBoardName(boardId, name);
+        // Update the board
+        await updateBoardDetails(boardId, name, color);
     });
+
+    const editBoardColor = document.getElementById('editBoardColor');
+    const editBoardUseDefaultColor = document.getElementById('editBoardUseDefaultColor');
+    if (editBoardColor && editBoardUseDefaultColor) {
+        editBoardUseDefaultColor.addEventListener('change', () => {
+            editBoardColor.disabled = editBoardUseDefaultColor.checked;
+        });
+    }
 
     // Rename page modal listeners
     const renamePageModal = document.getElementById('renamePageModal');
@@ -12181,6 +12419,28 @@ function setupModalEventListeners() {
         usageTrackingToggle.addEventListener('change', toggleUsageTrackingSetting);
     }
 
+    // Automatic Board Color toggle
+    const autoBoardColorToggle = document.getElementById('autoBoardColorToggle');
+    if (autoBoardColorToggle) {
+        autoBoardColorToggle.addEventListener('change', handleAutoBoardColorToggle);
+    }
+
+    // Randomize Board Color button in edit modal
+    const randomizeBoardColorBtn = document.getElementById('randomizeBoardColorBtn');
+    if (randomizeBoardColorBtn) {
+        randomizeBoardColorBtn.addEventListener('click', () => {
+            const colorInput = document.getElementById('editBoardColor');
+            const defaultToggle = document.getElementById('editBoardUseDefaultColor');
+            if (colorInput) {
+                if (defaultToggle) {
+                    defaultToggle.checked = false;
+                    colorInput.disabled = false;
+                }
+                colorInput.value = generateRandomColor();
+            }
+        });
+    }
+
     // Show clock toggle
     const showClockToggle = document.getElementById('showClockToggle');
     if (showClockToggle) {
@@ -12201,6 +12461,22 @@ function setupModalEventListeners() {
     const largeBoardVisibleLimitSelect = document.getElementById('largeBoardVisibleLimitSelect');
     if (largeBoardVisibleLimitSelect) {
         largeBoardVisibleLimitSelect.addEventListener('change', handleLargeBoardVisibleLimitChange);
+    }
+
+    // Customize Background settings
+    const customizeBackgroundPageSelect = document.getElementById('customizeBackgroundPageSelect');
+    if (customizeBackgroundPageSelect) {
+        customizeBackgroundPageSelect.addEventListener('change', updateResetBackgroundButtonVisibility);
+    }
+
+    const changePageBackgroundBtn = document.getElementById('changePageBackgroundBtn');
+    if (changePageBackgroundBtn) {
+        changePageBackgroundBtn.addEventListener('click', handleChangePageBackgroundClick);
+    }
+
+    const resetPageBackgroundBtn = document.getElementById('resetPageBackgroundBtn');
+    if (resetPageBackgroundBtn) {
+        resetPageBackgroundBtn.addEventListener('click', handleResetPageBackgroundClick);
     }
 
     // Quick save destination setting
@@ -18841,6 +19117,9 @@ function closeWallpaperPopup(options = {}) {
         wallpaperBtn.classList.remove('active');
         wallpaperBtn.setAttribute('aria-expanded', 'false');
     }
+
+    // Clear targeted page ID when closing the popup
+    window.wallpaperSelectionTargetPageId = null;
 }
 
 /*

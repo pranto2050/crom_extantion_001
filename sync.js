@@ -1502,7 +1502,8 @@ const SyncManager = {
             updatedAt: board.updatedAt ?? board.updated_at ?? null,
             syncVersion: this.normalizeSyncVersionValue(board.syncVersion ?? board.sync_version ?? null),
             deletedAt: board.deletedAt ?? board.deleted_at ?? null,
-            shareId: board.shareId ?? board.share_id ?? null
+            shareId: board.shareId ?? board.share_id ?? null,
+            color: board.color ?? null
         };
     },
 
@@ -3429,7 +3430,8 @@ const SyncManager = {
             a.order === b.order &&
             a.pageId === b.pageId &&
             a.deletedAt === b.deletedAt &&
-            a.shareId === b.shareId;
+            a.shareId === b.shareId &&
+            a.color === b.color;
     },
 
     /**

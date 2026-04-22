@@ -411,6 +411,36 @@ body {
     color: var(--ll-text-primary);
 }
 
+.app-wallpaper-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+    pointer-events: none;
+}
+
+.video-preview {
+    background-color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.video-icon-overlay {
+    color: white;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 50%;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
 button,
 input,
 select,
@@ -601,8 +631,188 @@ body.workspace-startup-pending.workspace-startup-indicator-visible:not(.not-auth
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 0;
-    transition: filter 0.2s ease, transform 0.25s ease;
+    transition: filter 0.2s ease, transform 0.25s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     padding-top: 0px;
+}
+
+.board.has-custom-color {
+    border-top: 3px solid var(--board-custom-color);
+    border-left: 1px solid rgba(var(--ll-board-bg-rgb), 0.3);
+}
+
+.board.has-custom-color .board-title-text {
+    color: var(--board-custom-color);
+    filter: brightness(1.2);
+}
+
+/* Color input in modal */
+.color-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.board-color-default-toggle {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    margin-top: 12px;
+    padding: 16px 18px;
+    border: 1px solid color-mix(in srgb, var(--ll-accent-1) 18%, var(--ll-border-soft));
+    border-radius: 16px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        linear-gradient(135deg, color-mix(in srgb, var(--ll-accent-1) 10%, transparent), transparent 55%);
+    color: var(--ll-text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.board-color-default-toggle:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--ll-accent-1) 32%, var(--ll-border-strong));
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+        linear-gradient(135deg, color-mix(in srgb, var(--ll-accent-1) 14%, transparent), transparent 58%);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+
+.board-color-default-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.board-color-default-title {
+    color: var(--ll-text-primary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.board-color-default-subtitle {
+    color: var(--ll-text-tertiary);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.board-color-default-switch {
+    position: relative;
+    flex: 0 0 auto;
+    width: 56px;
+    height: 32px;
+    align-self: center;
+}
+
+.board-color-default-switch input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.board-color-default-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, var(--ll-border-muted), color-mix(in srgb, var(--ll-border-muted) 70%, var(--ll-surface-6)));
+    border: 1px solid color-mix(in srgb, var(--ll-border-soft) 85%, var(--ll-accent-1));
+    transition: all 0.2s ease;
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.06);
+}
+
+.board-color-default-track::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--ll-text-bright), color-mix(in srgb, var(--ll-text-bright) 70%, var(--ll-border-soft)));
+    transform: translateY(-50%);
+    transition: transform 0.2s ease, background 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.board-color-default-switch input:checked + .board-color-default-track {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ll-accent-1) 32%, var(--ll-surface-6)), color-mix(in srgb, var(--ll-accent-1) 22%, var(--ll-surface-6)));
+    border-color: color-mix(in srgb, var(--ll-accent-1) 70%, var(--ll-border-soft));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ll-accent-1) 25%, transparent), inset 0 1px 2px rgba(255, 255, 255, 0.08);
+}
+
+.board-color-default-switch input:checked + .board-color-default-track::after {
+    transform: translate(24px, -50%);
+    background: linear-gradient(180deg, var(--ll-text-bright), color-mix(in srgb, var(--ll-text-bright) 65%, var(--ll-accent-1)));
+}
+
+.board-color-default-toggle:focus-within {
+    border-color: color-mix(in srgb, var(--ll-accent-1) 55%, var(--ll-border-soft));
+    box-shadow: 0 0 0 3px var(--ll-accent-soft), 0 10px 28px rgba(0, 0, 0, 0.2);
+}
+
+.board-color-default-toggle input:disabled {
+    cursor: not-allowed;
+}
+
+.board-color-default-toggle input:disabled + .board-color-default-track {
+    opacity: 0.7;
+}
+
+.board-color-default-toggle input:disabled + .board-color-default-track::after {
+    background: var(--ll-text-faint);
+}
+
+.board-color-default-toggle span {
+    line-height: 1.2;
+}
+
+#editBoardColor {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: transparent;
+}
+
+#editBoardColor::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+#editBoardColor::-webkit-color-swatch {
+    border: 2px solid var(--ll-border-soft);
+    border-radius: 4px;
+}
+
+#editBoardColor:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.btn-icon-only {
+    background: transparent;
+    border: 1px solid var(--ll-border-soft);
+    color: var(--ll-text-dim);
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-icon-only:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--ll-text-bright);
+    border-color: var(--ll-border-strong);
 }
 
 /* Privacy blur mode - applied when privacy mode is enabled */
@@ -1151,6 +1361,23 @@ body.workspace-startup-pending.workspace-startup-indicator-visible:not(.not-auth
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.bookmark-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.bookmark-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    background: var(--ll-surface-6);
+    border: 1px solid var(--ll-border-soft);
+    border-radius: 4px;
+    color: var(--ll-text-tertiary);
+    text-transform: lowercase;
 }
 
 body.show-bookmark-notes .bookmark-note {
@@ -3166,7 +3393,8 @@ body.has-grace-banner .search-overlay {
     color: var(--ll-text-faint);
 }
 
-.search-result-link-note {
+.search-result-link-note,
+.search-result-link-tags {
     min-width: 0;
     font-size: 12px;
     line-height: 1.35;
@@ -3174,6 +3402,11 @@ body.has-grace-banner .search-overlay {
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+.search-result-link-tags {
+    color: var(--ll-accent-primary);
+    font-size: 11px;
 }
 
 .search-result-link .favicon,
@@ -5195,6 +5428,161 @@ body.subscription-expired::before {
 
 .wallpaper-style-modal-buttons {
     flex-wrap: wrap;
+}
+
+/* Wallpaper Crop Modal */
+.wallpaper-crop-modal {
+    max-width: 800px;
+    width: 90%;
+}
+
+.wallpaper-crop-modal-subtitle {
+    margin: -10px 0 20px;
+    color: var(--ll-text-faint);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.wallpaper-crop-header {
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+#wallpaperCropUploadBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.wallpaper-crop-container {
+    position: relative;
+    width: 100%;
+    max-width: 800px;
+    height: 450px;
+    margin: 0 auto;
+    background: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+    border: 1px solid var(--ll-border-subtle);
+}
+
+.wallpaper-crop-preview {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wallpaper-crop-preview:active {
+    cursor: grabbing;
+}
+
+#wallpaperCropCanvas {
+    position: absolute;
+    user-select: none;
+    pointer-events: none;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+}
+
+.wallpaper-crop-controls {
+    margin: 20px 0;
+    padding: 15px;
+    background: var(--ll-bg-subtle);
+    border-radius: 10px;
+}
+
+.zoom-control {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.zoom-control label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ll-text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#wallpaperZoomSlider {
+    flex: 1;
+    height: 4px;
+    -webkit-appearance: none;
+    background: var(--ll-border-subtle);
+    border-radius: 2px;
+    outline: none;
+}
+
+#wallpaperZoomSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--ll-theme-primary);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+}
+
+#wallpaperZoomSlider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+#wallpaperCropResetBtn {
+    background: transparent;
+    border: 1px solid var(--ll-border-subtle);
+    color: var(--ll-text-faint);
+    padding: 6px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#wallpaperCropResetBtn:hover {
+    color: var(--ll-text);
+    border-color: var(--ll-text-faint);
+    background: var(--ll-bg-hover);
+}
+
+/* Crop Button in Style Editor */
+.wallpaper-style-crop-btn-container {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 1px solid var(--ll-border-subtle);
+}
+
+.btn-crop-wallpaper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-crop-wallpaper svg {
+    opacity: 0.8;
+}
+
+.wallpaper-tile-action-crop:hover {
+    color: var(--ll-theme-primary);
+}
+
+.wallpaper-crop-modal-buttons {
+    margin-top: 24px;
 }
 
 @media (max-width: 760px) {

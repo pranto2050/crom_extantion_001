@@ -26,7 +26,8 @@
             loadBoardsFromDatabase,
             getCurrentPageId,
             getIncognitoModeEnabled,
-            getOpenLinksInNewTab
+            getOpenLinksInNewTab,
+            trackBookmarkVisit
         } = options;
 
         let searchFeatureInitialized = false;
@@ -300,6 +301,9 @@
 
         function recordSearchBookmarkOpen(bookmarkId) {
             updateSearchBehaviorMetric('bookmarks', bookmarkId);
+            if (typeof trackBookmarkVisit === 'function') {
+                trackBookmarkVisit(bookmarkId);
+            }
         }
 
         function getBehaviorMetricScore(metric, weight = 1) {

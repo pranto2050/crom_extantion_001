@@ -70,6 +70,39 @@
   "themes": {
     "dark": [
       {
+        "id": "video/cybernetic-assassin",
+        "file": "wallpaper/video/Cybernetic Assassin In A Rainy City Live Wallpaper - MoeWalls.mp4",
+        "label": "Cybernetic Assassin",
+        "style": {
+          "primary": "#05E57B",
+          "boardBackgroundColor": "#292E3D",
+          "boardBackgroundOpacity": 0.5,
+          "boardBackdropBlur": 16
+        }
+      },
+      {
+        "id": "video/macos-ventura",
+        "file": "wallpaper/video/MacOS Ventura Live Wallpaper - MoeWalls.mp4",
+        "label": "MacOS Ventura",
+        "style": {
+          "primary": "#05E57B",
+          "boardBackgroundColor": "#292E3D",
+          "boardBackgroundOpacity": 0.5,
+          "boardBackdropBlur": 16
+        }
+      },
+      {
+        "id": "video/anime-girl",
+        "file": "wallpaper/video/anime-girl-purple-water-moewalls-com.mp4",
+        "label": "Anime Girl Purple Water",
+        "style": {
+          "primary": "#05E57B",
+          "boardBackgroundColor": "#292E3D",
+          "boardBackgroundOpacity": 0.5,
+          "boardBackdropBlur": 16
+        }
+      },
+      {
         "id": "dark/10041",
         "file": "wallpaper/dark/10041.jpg",
         "label": "Digital Ocean",
@@ -1033,6 +1066,39 @@
       }
     ],
     "light": [
+      {
+        "id": "video/cybernetic-assassin",
+        "file": "wallpaper/video/Cybernetic Assassin In A Rainy City Live Wallpaper - MoeWalls.mp4",
+        "label": "Cybernetic Assassin",
+        "style": {
+          "primary": "#05E57B",
+          "boardBackgroundColor": "#292E3D",
+          "boardBackgroundOpacity": 0.5,
+          "boardBackdropBlur": 16
+        }
+      },
+      {
+        "id": "video/macos-ventura",
+        "file": "wallpaper/video/MacOS Ventura Live Wallpaper - MoeWalls.mp4",
+        "label": "MacOS Ventura",
+        "style": {
+          "primary": "#05E57B",
+          "boardBackgroundColor": "#292E3D",
+          "boardBackgroundOpacity": 0.5,
+          "boardBackdropBlur": 16
+        }
+      },
+      {
+        "id": "video/anime-girl",
+        "file": "wallpaper/video/anime-girl-purple-water-moewalls-com.mp4",
+        "label": "Anime Girl Purple Water",
+        "style": {
+          "primary": "#05E57B",
+          "boardBackgroundColor": "#292E3D",
+          "boardBackgroundOpacity": 0.5,
+          "boardBackdropBlur": 16
+        }
+      },
       {
         "id": "light/10025",
         "file": "wallpaper/light/10025.jpg",
