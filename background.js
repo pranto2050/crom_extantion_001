@@ -379,17 +379,42 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'getBoardsForPage') {
         (async () => {
             try {
-                const pageId = typeof request?.pageId === 'string' ? request.pageId : '';
+                if (typeof ensureDbReady === 'function') {
+                    const ready = await ensureDbReady();
+                    if (!ready) {
+                        sendResponse({ boards: [] });
+                        return;
+                    }
+                }
+
+                let pageId = typeof request?.pageId === 'string' ? request.pageId : '';
+
+                // Backward compatible fallback when callers still pass "current".
+                if (!pageId || pageId === 'current') {
+                    const storageResult = await chrome.storage.local.get(['currentPageId']);
+                    pageId = typeof storageResult?.currentPageId === 'string'
+                        ? storageResult.currentPageId
+                        : '';
+                }
+
                 if (!pageId) {
                     sendResponse({ boards: [] });
                     return;
                 }
 
-                const boards = await db.boards
-                    .where('pageId')
-                    .equals(pageId)
-                    .filter((board) => !board.deletedAt)
-                    .toArray();
+                let boards = [];
+                try {
+                    boards = await db.boards
+                        .where('pageId')
+                        .equals(pageId)
+                        .toArray();
+                } catch (indexedLookupError) {
+                    console.warn('[BoardsForPage] Indexed lookup failed, falling back to full scan:', indexedLookupError);
+                    const allBoards = await db.boards.toArray();
+                    boards = allBoards.filter((board) => String(board?.pageId || '') === String(pageId));
+                }
+
+                boards = boards.filter((board) => !board?.deletedAt);
 
                 boards.sort((a, b) => {
                     const colA = Number.isFinite(a?.columnIndex) ? a.columnIndex : 0;

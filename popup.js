@@ -385,29 +385,55 @@ function loadBoardsDropdown(pageId) {
             }
 
             const boards = Array.isArray(response?.boards) ? response.boards : [];
-            if (boards.length === 0) {
-                const option = document.createElement('option');
-                option.value = SELECT_BOARD_PLACEHOLDER_VALUE;
-                option.textContent = 'No board found';
-                boardSelect.appendChild(option);
+            if (boards.length > 0) {
+                boards.forEach((board) => {
+                    const option = document.createElement('option');
+                    option.value = board.id;
+                    option.textContent = board.name;
+                    boardSelect.appendChild(option);
+                });
+
                 boardSelect.value = SELECT_BOARD_PLACEHOLDER_VALUE;
-                boardSelect.disabled = true;
+                boardSelect.disabled = false;
                 updatePopupSaveButtonAvailability();
                 resolve();
                 return;
             }
 
-            boards.forEach((board) => {
-                const option = document.createElement('option');
-                option.value = board.id;
-                option.textContent = board.name;
-                boardSelect.appendChild(option);
-            });
+            // Fallback: in rare states page-specific query can be empty while boards exist.
+            chrome.runtime.sendMessage({ action: 'getShortcutBoardPickerData' }, (fallbackResponse) => {
+                if (chrome.runtime.lastError) {
+                    console.error('Fallback board loading failed:', chrome.runtime.lastError.message);
+                }
 
-            boardSelect.value = SELECT_BOARD_PLACEHOLDER_VALUE;
-            boardSelect.disabled = false;
-            updatePopupSaveButtonAvailability();
-            resolve();
+                const allBoards = Array.isArray(fallbackResponse?.boards) ? fallbackResponse.boards : [];
+                const matchingBoards = allBoards.filter((board) => String(board?.pageId || '') === String(pageId));
+                const finalBoards = matchingBoards.length > 0 ? matchingBoards : allBoards;
+
+                if (finalBoards.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+                    option.textContent = 'No board found';
+                    boardSelect.appendChild(option);
+                    boardSelect.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+                    boardSelect.disabled = true;
+                    updatePopupSaveButtonAvailability();
+                    resolve();
+                    return;
+                }
+
+                finalBoards.forEach((board) => {
+                    const option = document.createElement('option');
+                    option.value = board.id;
+                    option.textContent = board.name || 'Untitled Board';
+                    boardSelect.appendChild(option);
+                });
+
+                boardSelect.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+                boardSelect.disabled = false;
+                updatePopupSaveButtonAvailability();
+                resolve();
+            });
         });
     });
 }
