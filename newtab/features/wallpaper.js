@@ -134,7 +134,7 @@
 
         function readThemeModeCache() {
             try {
-                const cachedMode = localStorage.getItem('lumilist_theme_mode');
+                const cachedMode = localStorage.getItem('LumiList_theme_mode');
                 return (cachedMode === 'dark' || cachedMode === 'light') ? cachedMode : null;
             } catch (error) {
                 return null;
@@ -1891,7 +1891,7 @@
             await commitWallpaperAccountStoragePayload(storagePayload);
 
             try {
-                localStorage.setItem('lumilist_theme_mode', configuredSeed.themeMode);
+                localStorage.setItem('LumiList_theme_mode', configuredSeed.themeMode);
             } catch (_error) {
                 // Non-blocking cache write
             }
@@ -1957,7 +1957,7 @@
             await commitWallpaperAccountStoragePayload(storagePayload);
 
             try {
-                localStorage.setItem('lumilist_theme_mode', configuredSeed.themeMode);
+                localStorage.setItem('LumiList_theme_mode', configuredSeed.themeMode);
             } catch (_error) {
                 // Non-blocking cache write
             }
@@ -3176,7 +3176,7 @@
                 ? extension.trim().toLowerCase()
                 : 'jpg';
             const safeLabel = sanitizeWallpaperDownloadLabel(label);
-            return `lumilist-${normalizedTheme}-${safeLabel}.${normalizedExtension}`;
+            return `LumiList-${normalizedTheme}-${safeLabel}.${normalizedExtension}`;
         }
 
         function triggerWallpaperBlobDownload(blob, filename) {
@@ -3945,16 +3945,16 @@
         }
 
         function clearLocalThemeWallpaperCaches() {
-            if (typeof window !== 'undefined' && typeof window.__lumilistClearFontColorPreferenceState === 'function') {
+            if (typeof window !== 'undefined' && typeof window.__LumiListClearFontColorPreferenceState === 'function') {
                 try {
-                    window.__lumilistClearFontColorPreferenceState();
+                    window.__LumiListClearFontColorPreferenceState();
                 } catch (_error) {
                     // Ignore runtime cleanup failures.
                 }
             }
             const keys = [
-                'lumilist_theme_mode',
-                'lumilist_font_color',
+                'LumiList_theme_mode',
+                'LumiList_font_color',
                 wallpaperLocalCacheKey,
                 wallpaperStyleLocalCacheKey,
                 wallpaperBinaryCacheLocalKey,
@@ -5241,7 +5241,7 @@
             });
 
             try {
-                localStorage.setItem('lumilist_theme_mode', normalized);
+                localStorage.setItem('LumiList_theme_mode', normalized);
             } catch (error) {
                 console.warn('Failed to cache theme mode in localStorage:', error);
             }
@@ -5324,7 +5324,7 @@
             }
 
             try {
-                localStorage.setItem('lumilist_theme_mode', resolvedMode);
+                localStorage.setItem('LumiList_theme_mode', resolvedMode);
             } catch (_error) {
                 // Non-blocking fallback
             }

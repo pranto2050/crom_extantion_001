@@ -59,8 +59,8 @@
         "newtab.html"
       ],
       "matches": [
-        "https://lumilist.in/*",
-        "https://www.lumilist.in/*"
+        "https://LumiList.in/*",
+        "https://www.LumiList.in/*"
       ]
     }
   ]

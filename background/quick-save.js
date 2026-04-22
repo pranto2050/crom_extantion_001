@@ -2,7 +2,7 @@
  * Check bookmark limit from IndexedDB
  * @returns {Promise<{ allowed: boolean, count: number, limit: number, remaining: number }>}
  */
-const BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
+const BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY = 'LumiList_login_sync_state';
 const CLOSE_TABS_AFTER_SAVE_ALL_STORAGE_KEY = 'closeTabsAfterSaveAllTabs';
 const QUICK_SAVE_COMMAND_NAME = 'quick-save';
 const SHORTCUT_BOARD_PICKER_PATH = 'shortcut-save.html';
@@ -584,7 +584,7 @@ async function quickSaveLink(url, title) {
 
         // Check login and subscription
         const storageData = await chrome.storage.local.get([
-            'lumilist_user',
+            'LumiList_user',
             'subscriptionStatus',
             'subscriptionData',
             'subscriptionLastKnownState',
@@ -594,7 +594,7 @@ async function quickSaveLink(url, title) {
             'currentPageId'
         ]);
 
-        if (!storageData.lumilist_user) {
+        if (!storageData.LumiList_user) {
             return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
         }
 
@@ -851,7 +851,7 @@ async function quickSaveLink(url, title) {
         }
 
         try {
-            await trackReviewPromptManualBookmarks(storageData.lumilist_user?.id, 1);
+            await trackReviewPromptManualBookmarks(storageData.LumiList_user?.id, 1);
         } catch (reviewTrackError) {
             console.warn('[ReviewPrompt] Failed to track quick-save link bookmark count:', reviewTrackError);
         }
@@ -876,10 +876,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     
 
     // Check login status
-    const storageData = await chrome.storage.local.get(['lumilist_user', 'subscriptionStatus', 'subscriptionData', 'subscriptionLastKnownState']);
-    const { lumilist_user } = storageData;
+    const storageData = await chrome.storage.local.get(['LumiList_user', 'subscriptionStatus', 'subscriptionData', 'subscriptionLastKnownState']);
+    const { LumiList_user } = storageData;
 
-    if (!lumilist_user) {
+    if (!LumiList_user) {
         
         if (tab && tab.id) {
             showSaveNotification({ success: false, message: 'Please login to save', requiresLogin: true }, tab.id, tab.url);
@@ -1619,7 +1619,7 @@ function normalizeBackgroundLoginSyncState(rawState) {
 }
 
 function getBackgroundSaveGuardResult(storageData = {}) {
-    const activeUserId = normalizeBackgroundSyncSourceUserId(storageData?.lumilist_user?.id);
+    const activeUserId = normalizeBackgroundSyncSourceUserId(storageData?.LumiList_user?.id);
     const loginSyncState = normalizeBackgroundLoginSyncState(
         storageData?.[BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY]
     );
@@ -1716,7 +1716,7 @@ async function getShortcutBoardPickerData() {
     }
 
     const storageData = await chrome.storage.local.get([
-        'lumilist_user',
+        'LumiList_user',
         BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY,
         'quickSavePageId',
         'currentPageId',
@@ -1725,7 +1725,7 @@ async function getShortcutBoardPickerData() {
         SHORTCUT_USE_LAST_BOARD_STORAGE_KEY
     ]);
 
-    if (storageData.lumilist_user) {
+    if (storageData.LumiList_user) {
         const saveGuard = getBackgroundSaveGuardResult(storageData);
         if (!saveGuard.allowed) {
             return { success: false, message: saveGuard.message, loginSyncPending: true };
@@ -1867,7 +1867,7 @@ async function showSaveNotification(result, tabId, tabUrl = null) {
             target: { tabId: tabId },
             func: (result, themePalette) => {
                 // Remove existing toast if any
-                const existingToast = document.getElementById('lumilist-toast');
+                const existingToast = document.getElementById('LumiList-toast');
                 if (existingToast) existingToast.remove();
 
                 // FIX [Critical #10]: Define escapeHtml INSIDE the injected function
@@ -1884,7 +1884,7 @@ async function showSaveNotification(result, tabId, tabUrl = null) {
 
                 // Create toast container
                 const toast = document.createElement('div');
-                toast.id = 'lumilist-toast';
+                toast.id = 'LumiList-toast';
 
                 // Determine toast type
                 const isSuccess = result.success;
@@ -2181,8 +2181,8 @@ async function attachBackgroundSyncUserScope(operations) {
 
     let sourceUserId = null;
     try {
-        const storageData = await chrome.storage.local.get(['lumilist_user']);
-        sourceUserId = normalizeBackgroundSyncSourceUserId(storageData?.lumilist_user?.id);
+        const storageData = await chrome.storage.local.get(['LumiList_user']);
+        sourceUserId = normalizeBackgroundSyncSourceUserId(storageData?.LumiList_user?.id);
     } catch (error) {
         console.warn('[QuickSave] Failed to resolve sync queue user scope:', error);
     }
@@ -2269,7 +2269,7 @@ async function quickSaveTab(tab) {
         }
 
         const storageData = await chrome.storage.local.get([
-            'lumilist_user',
+            'LumiList_user',
             'subscriptionStatus',
             'subscriptionData',
             'subscriptionLastKnownState',
@@ -2279,7 +2279,7 @@ async function quickSaveTab(tab) {
         ]);
 
         // Check if user is logged in first
-        if (!storageData.lumilist_user) {
+        if (!storageData.LumiList_user) {
             
             return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
         }
@@ -2555,7 +2555,7 @@ async function quickSaveTab(tab) {
         }
 
         try {
-            await trackReviewPromptManualBookmarks(storageData.lumilist_user?.id, 1);
+            await trackReviewPromptManualBookmarks(storageData.LumiList_user?.id, 1);
         } catch (reviewTrackError) {
             console.warn('[ReviewPrompt] Failed to track quick-save tab bookmark count:', reviewTrackError);
         }
@@ -2594,14 +2594,14 @@ async function quickSaveTabToBoard(tab, boardId) {
         }
 
         const storageData = await chrome.storage.local.get([
-            'lumilist_user',
+            'LumiList_user',
             'subscriptionStatus',
             'subscriptionData',
             'subscriptionLastKnownState',
             BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY
         ]);
 
-        if (storageData.lumilist_user) {
+        if (storageData.LumiList_user) {
             const subscriptionAccess = await resolveBackgroundSubscriptionWriteAccess(storageData);
             const subAccess = subscriptionAccess.subAccess;
             if (!subAccess.allowed) {
@@ -2798,7 +2798,7 @@ async function quickSaveTabToBoard(tab, boardId) {
         }
 
         try {
-            await trackReviewPromptManualBookmarks(storageData.lumilist_user?.id, 1);
+            await trackReviewPromptManualBookmarks(storageData.LumiList_user?.id, 1);
         } catch (reviewTrackError) {
             console.warn('[ReviewPrompt] Failed to track shortcut board quick-save count:', reviewTrackError);
         }
@@ -2852,7 +2852,7 @@ async function saveAllTabs() {
 
         // Check if user is logged in first
         const storageData = await chrome.storage.local.get([
-            'lumilist_user',
+            'LumiList_user',
             'subscriptionStatus',
             'subscriptionData',
             'subscriptionLastKnownState',
@@ -2861,7 +2861,7 @@ async function saveAllTabs() {
             'quickSavePageId',
             'currentPageId'
         ]);
-        if (!storageData.lumilist_user) {
+        if (!storageData.LumiList_user) {
             
             return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
         }
@@ -3148,7 +3148,7 @@ async function saveAllTabs() {
         }
 
         try {
-            await trackReviewPromptManualBookmarks(storageData.lumilist_user?.id, saveResult.savedCount || 0);
+            await trackReviewPromptManualBookmarks(storageData.LumiList_user?.id, saveResult.savedCount || 0);
         } catch (reviewTrackError) {
             console.warn('[ReviewPrompt] Failed to track save-all-tabs bookmark count:', reviewTrackError);
         }

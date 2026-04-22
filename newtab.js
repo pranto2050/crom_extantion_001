@@ -5,11 +5,11 @@ DATABASE SETUP AND INITIALIZATION
 Using Dexie.js as a wrapper for IndexedDB to store boards and bookmarks locally
 */
 
-const lumiListModules = window.LumiListModules || {};
-if (!lumiListModules.coreUtils || !lumiListModules.feedback) {
+const LumiListModules = window.LumiListModules || {};
+if (!LumiListModules.coreUtils || !LumiListModules.feedback) {
     throw new Error('LumiList shared runtime modules failed to load before newtab.js');
 }
-const featureFactories = lumiListModules.features || {};
+const featureFactories = LumiListModules.features || {};
 
 const {
     generateId,
@@ -22,13 +22,13 @@ const {
     normalizeBooleanValue,
     getCurrentTimestamp,
     escapeHtml
-} = lumiListModules.coreUtils;
+} = LumiListModules.coreUtils;
 
 const {
     updateLoadingMessage,
     showGlassToast,
     showGlassConfirm
-} = lumiListModules.feedback;
+} = LumiListModules.feedback;
 
 // Database schema definition
 const db = new Dexie('BookmarkManager');
@@ -41,7 +41,7 @@ const SYNC_QUEUE_CAPACITY_LIMIT = 120000;
 const UNDO_REDO_SYNC_QUEUE_LIMIT = 1000;
 // Conservative chunk size leaves room for other pending queue entries.
 const UNDO_REDO_SYNC_CHUNK_SIZE = 250;
-const SESSION_INVALIDATION_STORAGE_KEY = 'lumilist_session_invalidated';
+const SESSION_INVALIDATION_STORAGE_KEY = 'LumiList_session_invalidated';
 const FLOATING_CONTROL_POPUP_GAP_PX = 14;
 const FLOATING_CONTROL_POPUP_MARGIN_PX = 16;
 
@@ -397,19 +397,19 @@ const expandedLargeBoardIds = new Set();
 let themeMode = 'dark';
 const WALLPAPER_STORAGE_KEY = 'wallpaperSelectionByTheme';
 const PAGE_WALLPAPERS_STORAGE_KEY = 'pageWallpaperSelections';
-const WALLPAPER_LOCAL_CACHE_KEY = 'lumilist_wallpaper_selection';
-const WALLPAPER_STYLE_LOCAL_CACHE_KEY = 'lumilist_wallpaper_style_by_theme';
-const WALLPAPER_BINARY_CACHE_LOCAL_KEY = 'lumilist_wallpaper_binary_cache_v1';
-const WALLPAPER_BOOT_STYLE_CACHE_PREFIX = 'lumilist_wallpaper_boot_style_';
-const WALLPAPER_BOOT_BINARY_CACHE_PREFIX = 'lumilist_wallpaper_boot_binary_';
-const WALLPAPER_BOOT_SOURCE_CACHE_PREFIX = 'lumilist_wallpaper_boot_source_';
-const WALLPAPER_BOOT_AUTH_HINT_LOCAL_KEY = 'lumilist_wallpaper_boot_auth_hint_v1';
-const WALLPAPER_LOGGED_OUT_DEFAULT_SNAPSHOT_LOCAL_KEY = 'lumilist_logged_out_default_visual_v1';
+const WALLPAPER_LOCAL_CACHE_KEY = 'LumiList_wallpaper_selection';
+const WALLPAPER_STYLE_LOCAL_CACHE_KEY = 'LumiList_wallpaper_style_by_theme';
+const WALLPAPER_BINARY_CACHE_LOCAL_KEY = 'LumiList_wallpaper_binary_cache_v1';
+const WALLPAPER_BOOT_STYLE_CACHE_PREFIX = 'LumiList_wallpaper_boot_style_';
+const WALLPAPER_BOOT_BINARY_CACHE_PREFIX = 'LumiList_wallpaper_boot_binary_';
+const WALLPAPER_BOOT_SOURCE_CACHE_PREFIX = 'LumiList_wallpaper_boot_source_';
+const WALLPAPER_BOOT_AUTH_HINT_LOCAL_KEY = 'LumiList_wallpaper_boot_auth_hint_v1';
+const WALLPAPER_LOGGED_OUT_DEFAULT_SNAPSHOT_LOCAL_KEY = 'LumiList_logged_out_default_visual_v1';
 const WALLPAPER_ACCOUNT_LOCAL_STATE_STORAGE_KEY = 'wallpaperLocalStateByUser';
 const WALLPAPER_CLOUD_SYNC_STATE_STORAGE_KEY = 'wallpaperCloudSyncState';
-const WALLPAPER_PENDING_HANDOFF_STORAGE_KEY = 'lumilist_pending_wallpaper_handoff_v1';
-const WALLPAPER_NEW_USER_DEFAULT_SEED_STORAGE_KEY = 'lumilist_pending_new_user_wallpaper_default_seed_v1';
-const WALLPAPER_DIAGNOSTICS_LOCAL_KEY = 'lumilist_wallpaper_diagnostics_v1';
+const WALLPAPER_PENDING_HANDOFF_STORAGE_KEY = 'LumiList_pending_wallpaper_handoff_v1';
+const WALLPAPER_NEW_USER_DEFAULT_SEED_STORAGE_KEY = 'LumiList_pending_new_user_wallpaper_default_seed_v1';
+const WALLPAPER_DIAGNOSTICS_LOCAL_KEY = 'LumiList_wallpaper_diagnostics_v1';
 const WALLPAPER_DIAGNOSTICS_MAX_EVENTS = 60;
 const WALLPAPER_RUNTIME_ROLLOUT_FLAGS = Object.freeze({
     explicitRemoteGallery: true,
@@ -431,7 +431,7 @@ const WALLPAPER_DIAGNOSTIC_COUNTER_KEYS = Object.freeze([
 ]);
 const WALLPAPER_SYNC_METADATA_RECORD_ID = 'wallpaper_preferences';
 const INSTALLED_WALLPAPER_CATALOG_VERSION_STORAGE_KEY = 'installedWallpaperCatalogVersion';
-const INSTALLED_WALLPAPER_SOURCE_PREFIX = 'lumilist-installed://';
+const INSTALLED_WALLPAPER_SOURCE_PREFIX = 'LumiList-installed://';
 const LOCAL_USER_WALLPAPER_SOURCE_TYPE = 'user-upload';
 const WALLPAPER_CATALOG_PATH = 'wallpaper/catalog.json';
 const WALLPAPER_REMOTE_CATALOG_URL = 'https://xbccmcszhnybxzlirjgk.supabase.co/storage/v1/object/public/wallpaper/catalog.json';
@@ -543,16 +543,16 @@ let pendingLoggedOutThemeResetPromise = null;
 const QUICK_SAVE_COMMAND_NAME = 'quick-save';
 const SHORTCUTS_SETTINGS_URL = 'chrome://extensions/shortcuts';
 const EXTENSIONS_SETTINGS_URL = 'chrome://extensions';
-const SYNC_USER_STORAGE_KEY = 'lumilist_user';
-const SYNC_SESSION_INVALIDATED_STORAGE_KEY = 'lumilist_session_invalidated';
-const LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
+const SYNC_USER_STORAGE_KEY = 'LumiList_user';
+const SYNC_SESSION_INVALIDATED_STORAGE_KEY = 'LumiList_session_invalidated';
+const LOGIN_SYNC_STATE_STORAGE_KEY = 'LumiList_login_sync_state';
 const SHOW_BOOKMARK_NOTES_STORAGE_KEY = 'showBookmarkNotes';
 const CLOSE_TABS_AFTER_SAVE_ALL_STORAGE_KEY = 'closeTabsAfterSaveAllTabs';
 const FLOATING_CONTROLS_COLLAPSED_STORAGE_KEY = 'floatingControlsCollapsedEnabled';
 const SHOW_CLOCK_STORAGE_KEY = 'showClockEnabled';
 const AUTO_BOARD_COLOR_STORAGE_KEY = 'autoBoardColorEnabled';
 const FONT_COLOR_STORAGE_KEY = 'fontColor';
-const FONT_COLOR_LOCAL_CACHE_KEY = 'lumilist_font_color';
+const FONT_COLOR_LOCAL_CACHE_KEY = 'LumiList_font_color';
 const CLOCK_POSITION_STORAGE_KEY = 'clockPosition';
 const CLOCK_SIZE_STORAGE_KEY = 'clockSize';
 const STARTUP_STORAGE_KEYS = Object.freeze([
@@ -647,12 +647,12 @@ function normalizeRuntimeUserId(userId) {
 
 function setWorkspaceOwnerUserId(userId) {
     const normalized = normalizeRuntimeUserId(userId);
-    window.__lumilistWorkspaceOwnerUserId = normalized;
+    window.__LumiListWorkspaceOwnerUserId = normalized;
     setWallpaperAccountScopeUserId(normalized);
 }
 
 function setActiveStoredUserId(userId) {
-    window.__lumilistActiveStoredUserId = normalizeRuntimeUserId(userId);
+    window.__LumiListActiveStoredUserId = normalizeRuntimeUserId(userId);
 }
 
 function writeThemeBootstrapAuthHint(isAuthenticated) {
@@ -667,7 +667,7 @@ function writeThemeBootstrapAuthHint(isAuthenticated) {
 }
 
 function getActiveStoredUserId() {
-    return normalizeRuntimeUserId(window.__lumilistActiveStoredUserId);
+    return normalizeRuntimeUserId(window.__LumiListActiveStoredUserId);
 }
 
 async function getCurrentStoredUserId() {
@@ -690,8 +690,8 @@ async function getCurrentStoredUserId() {
 
     try {
         if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-            const result = await chrome.storage.local.get('lumilist_user');
-            return normalizeRuntimeUserId(result?.lumilist_user?.id);
+            const result = await chrome.storage.local.get('LumiList_user');
+            return normalizeRuntimeUserId(result?.LumiList_user?.id);
         }
     } catch (error) {
         console.warn('Failed to read stored user from storage:', error);
@@ -701,7 +701,7 @@ async function getCurrentStoredUserId() {
 }
 
 function getWorkspaceMutationBlockedReason() {
-    const workspaceOwnerUserId = normalizeRuntimeUserId(window.__lumilistWorkspaceOwnerUserId);
+    const workspaceOwnerUserId = normalizeRuntimeUserId(window.__LumiListWorkspaceOwnerUserId);
     const activeStoredUserId = getActiveStoredUserId();
 
     if (_crossTabLoginInProgress) {
@@ -745,16 +745,16 @@ function isAuthBoundaryStorageChange(change) {
     return oldUserId !== newUserId;
 }
 
-function shouldApplyAccountScopedStorageUpdate(lumilistUserChange = null) {
+function shouldApplyAccountScopedStorageUpdate(LumiListUserChange = null) {
     if (_crossTabLoginInProgress) {
         return false;
     }
 
-    if (isAuthBoundaryStorageChange(lumilistUserChange)) {
+    if (isAuthBoundaryStorageChange(LumiListUserChange)) {
         return false;
     }
 
-    const workspaceOwnerUserId = normalizeRuntimeUserId(window.__lumilistWorkspaceOwnerUserId);
+    const workspaceOwnerUserId = normalizeRuntimeUserId(window.__LumiListWorkspaceOwnerUserId);
     const activeStoredUserId = getActiveStoredUserId();
 
     if (!workspaceOwnerUserId || !activeStoredUserId) {
@@ -1535,7 +1535,7 @@ let _crossTabLoginTimeoutId = null;
 let _onboardingRetryTimeoutId = null;
 let _onboardingOpenTimeoutId = null;
 
-const QUICK_TOUR_STORAGE_KEY_PREFIX = 'lumilist_quick_tour_v1_';
+const QUICK_TOUR_STORAGE_KEY_PREFIX = 'LumiList_quick_tour_v1_';
 const QUICK_TOUR_VERSION = 1;
 const QUICK_TOUR_TARGET_RETRY_LIMIT = 12;
 const QUICK_TOUR_TARGET_RETRY_DELAY_MS = 150;
@@ -1584,10 +1584,10 @@ let quickTourState = {
 // Unique ID for this tab instance (used to coordinate onboarding ownership across tabs)
 const TAB_INSTANCE_ID = (() => {
     try {
-        const existing = sessionStorage.getItem('lumilist_tab_instance_id');
+        const existing = sessionStorage.getItem('LumiList_tab_instance_id');
         if (existing) return existing;
         const id = (crypto?.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        sessionStorage.setItem('lumilist_tab_instance_id', id);
+        sessionStorage.setItem('LumiList_tab_instance_id', id);
         return id;
     } catch (e) {
         // Fallback if sessionStorage is unavailable
@@ -1605,7 +1605,7 @@ const BOOKMARK_LIMIT = 100000;
 const BOOKMARK_WARNING_THRESHOLD = 90000;  // Show soft warning
 const BOOKMARK_CRITICAL_THRESHOLD = 95000;  // Show critical warning
 const REVIEW_PROMPT_MODAL_ID = 'reviewPromptModal';
-const REVIEW_PROMPT_CWS_REVIEW_URL = 'https://chromewebstore.google.com/detail/lumilist/pcekakljniocipfpmjmpmgaleigcbhlh/reviews';
+const REVIEW_PROMPT_CWS_REVIEW_URL = 'https://chromewebstore.google.com/detail/LumiList/pcekakljniocipfpmjmpmgaleigcbhlh/reviews';
 const REVIEW_PROMPT_TRIAL_WARNING_DAYS_THRESHOLD = 3;
 const REVIEW_PROMPT_ISSUE_REPORT_COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -2003,7 +2003,7 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
     chrome.storage.onChanged.addListener((changes, areaName) => {
         try {
             const canApplyAccountScopedStorageState = areaName === 'local'
-                && shouldApplyAccountScopedStorageUpdate(changes.lumilist_user);
+                && shouldApplyAccountScopedStorageUpdate(changes.LumiList_user);
 
             if (areaName === 'local' && changes.privacyModeEnabled && canApplyAccountScopedStorageState) {
                 const newValue = changes.privacyModeEnabled.newValue === true;
@@ -2101,7 +2101,7 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
                 if (newMode !== themeMode) {
                     applyThemeMode(newMode);
                     try {
-                        localStorage.setItem('lumilist_theme_mode', newMode);
+                        localStorage.setItem('LumiList_theme_mode', newMode);
                     } catch (e) {
                         // Non-blocking cache update
                     }
@@ -2274,8 +2274,8 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
             }
 
             // Listen for auth changes from other tabs (logout, login, account switch)
-            if (areaName === 'local' && changes.lumilist_user) {
-                setActiveStoredUserId(changes.lumilist_user.newValue?.id || null);
+            if (areaName === 'local' && changes.LumiList_user) {
+                setActiveStoredUserId(changes.LumiList_user.newValue?.id || null);
 
                 // Skip if this tab initiated the auth change (prevents duplicate processing)
                 if (isCurrentTabAuthenticating) {
@@ -2283,8 +2283,8 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
                     return;
                 }
 
-                const oldValue = changes.lumilist_user.oldValue;
-                const newValue = changes.lumilist_user.newValue;
+                const oldValue = changes.LumiList_user.oldValue;
+                const newValue = changes.LumiList_user.newValue;
 
                 // Case 1: Logout detected (user was logged in, now logged out)
                 if (oldValue && !newValue) {
@@ -2301,7 +2301,7 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
                     ]).then(async () => {
                         // Clean up onboarding ownership key for the logged-out user
                         if (oldValue?.id && typeof chrome !== 'undefined' && chrome.storage?.local) {
-                            const ownerKey = `lumilist_onboarding_owner_${oldValue.id}`;
+                            const ownerKey = `LumiList_onboarding_owner_${oldValue.id}`;
                             chrome.storage.local.remove(ownerKey);
                         }
                         setWorkspaceOwnerUserId(null);
@@ -2364,8 +2364,8 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
             }
 
             // Listen for login sync completion (other tabs finished syncOnLogin)
-            if (areaName === 'local' && changes.lumilist_login_sync_complete) {
-                const signal = changes.lumilist_login_sync_complete.newValue;
+            if (areaName === 'local' && changes.LumiList_login_sync_complete) {
+                const signal = changes.LumiList_login_sync_complete.newValue;
                 if (!signal?.userId) return;
 
                 // Skip if this tab initiated the auth change
@@ -2393,7 +2393,7 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
 
 // ==================== SEARCH OVERLAY FUNCTIONS ====================
 
-const SEARCH_BEHAVIOR_STORAGE_KEY = 'lumilist_search_behavior_v1';
+const SEARCH_BEHAVIOR_STORAGE_KEY = 'LumiList_search_behavior_v1';
 const SEARCH_BEHAVIOR_DECAY_WINDOW_DAYS = 21;
 const SEARCH_ALIAS_MAP = Object.freeze({
     gsc: ['google', 'search', 'console'],
@@ -7911,8 +7911,8 @@ async function openEditBookmarkModal(bookmarkId) {
         document.getElementById('editBookmarkTitle').focus();
 
         // Trigger Privacy & Security Analysis
-        if (lumiListModules.privacyUI) {
-            const analysis = lumiListModules.privacyAssistant.analyze({
+        if (LumiListModules.privacyUI) {
+            const analysis = LumiListModules.privacyAssistant.analyze({
                 password: '',
                 bookmark: {
                     title: bookmark.title,
@@ -7921,7 +7921,7 @@ async function openEditBookmarkModal(bookmarkId) {
                     tags: ''
                 }
             });
-            lumiListModules.privacyUI.renderAnalysis('editBookmarkPrivacyAnalysis', analysis);
+            LumiListModules.privacyUI.renderAnalysis('editBookmarkPrivacyAnalysis', analysis);
         }
 
     } catch (error) {
@@ -8754,6 +8754,184 @@ async function handleResetPageBackgroundClick() {
     }
 }
 
+function normalizeBackupOrder(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toBackupUnixTimestamp(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        if (value > 1000000000000) return Math.floor(value / 1000);
+        if (value > 0) return Math.floor(value);
+    }
+
+    if (typeof value === 'string' && value.trim()) {
+        const parsed = Date.parse(value);
+        if (Number.isFinite(parsed)) {
+            return Math.floor(parsed / 1000);
+        }
+    }
+
+    return Math.floor(Date.now() / 1000);
+}
+
+function escapeBackupHtml(value) {
+    if (value === null || value === undefined) return '';
+    return escapeHtml(String(value));
+}
+
+function buildChromeBookmarkBackupHtml({ pages, boards, bookmarks, generatedAt }) {
+    const activePages = (Array.isArray(pages) ? pages : [])
+        .filter(page => !page?.deletedAt)
+        .sort((a, b) => {
+            const orderDiff = normalizeBackupOrder(a?.order) - normalizeBackupOrder(b?.order);
+            if (orderDiff !== 0) return orderDiff;
+            return String(a?.name || '').localeCompare(String(b?.name || ''));
+        });
+
+    const activeBoards = (Array.isArray(boards) ? boards : [])
+        .filter(board => !board?.deletedAt)
+        .sort((a, b) => {
+            const colDiff = normalizeBackupOrder(a?.columnIndex) - normalizeBackupOrder(b?.columnIndex);
+            if (colDiff !== 0) return colDiff;
+            const orderDiff = normalizeBackupOrder(a?.order) - normalizeBackupOrder(b?.order);
+            if (orderDiff !== 0) return orderDiff;
+            return String(a?.name || '').localeCompare(String(b?.name || ''));
+        });
+
+    const activeBookmarks = (Array.isArray(bookmarks) ? bookmarks : [])
+        .filter(bookmark => !bookmark?.deletedAt && typeof bookmark?.url === 'string' && bookmark.url.trim())
+        .sort((a, b) => {
+            const orderDiff = normalizeBackupOrder(a?.order) - normalizeBackupOrder(b?.order);
+            if (orderDiff !== 0) return orderDiff;
+            return String(a?.title || '').localeCompare(String(b?.title || ''));
+        });
+
+    const boardsByPageId = new Map();
+    activeBoards.forEach((board) => {
+        const pageId = String(board?.pageId || '');
+        if (!boardsByPageId.has(pageId)) {
+            boardsByPageId.set(pageId, []);
+        }
+        boardsByPageId.get(pageId).push(board);
+    });
+
+    const bookmarksByBoardId = new Map();
+    activeBookmarks.forEach((bookmark) => {
+        const boardId = String(bookmark?.boardId || '');
+        if (!bookmarksByBoardId.has(boardId)) {
+            bookmarksByBoardId.set(boardId, []);
+        }
+        bookmarksByBoardId.get(boardId).push(bookmark);
+    });
+
+    const exportTimestamp = toBackupUnixTimestamp(generatedAt);
+    const formattedDate = new Date(generatedAt).toLocaleString();
+    const lines = [
+        '<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+        '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+        '<TITLE>Bookmarks</TITLE>',
+        '<H1>Bookmarks</H1>',
+        '<DL><p>',
+        `    <DT><H3 ADD_DATE="${exportTimestamp}">LumiList Backup (${escapeBackupHtml(formattedDate)})</H3>`,
+        '    <DL><p>'
+    ];
+
+    activePages.forEach((page) => {
+        const pageId = String(page?.id || '');
+        const pageName = escapeBackupHtml(page?.name || 'Untitled Page');
+        const pageTimestamp = toBackupUnixTimestamp(page?.createdAt || generatedAt);
+        lines.push(`        <DT><H3 ADD_DATE="${pageTimestamp}">${pageName}</H3>`);
+        lines.push('        <DL><p>');
+
+        const pageBoards = boardsByPageId.get(pageId) || [];
+        pageBoards.forEach((board) => {
+            const boardId = String(board?.id || '');
+            const boardName = escapeBackupHtml(board?.name || 'Untitled Board');
+            const boardTimestamp = toBackupUnixTimestamp(board?.createdAt || generatedAt);
+            lines.push(`            <DT><H3 ADD_DATE="${boardTimestamp}">${boardName}</H3>`);
+            lines.push('            <DL><p>');
+
+            const boardBookmarks = bookmarksByBoardId.get(boardId) || [];
+            boardBookmarks.forEach((bookmark) => {
+                const bookmarkTitle = escapeBackupHtml(bookmark?.title || bookmark?.url || 'Untitled');
+                const bookmarkUrl = escapeBackupHtml(bookmark?.url || '');
+                const bookmarkTimestamp = toBackupUnixTimestamp(bookmark?.createdAt || generatedAt);
+                lines.push(`                <DT><A HREF="${bookmarkUrl}" ADD_DATE="${bookmarkTimestamp}">${bookmarkTitle}</A>`);
+            });
+
+            lines.push('            </DL><p>');
+        });
+
+        lines.push('        </DL><p>');
+    });
+
+    lines.push('    </DL><p>');
+    lines.push('</DL><p>');
+
+    return lines.join('\n');
+}
+
+function downloadBackupTextFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+}
+
+async function exportFullBookmarkBackup() {
+    const exportBtn = document.getElementById('settingsExportBackupBtn');
+    const defaultLabel = exportBtn?.textContent || 'Export Full Bookmark Backup';
+
+    if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.textContent = 'Exporting...';
+    }
+
+    try {
+        const [pages, boards, bookmarks] = await Promise.all([
+            db.pages.toArray(),
+            db.boards.toArray(),
+            db.bookmarks.toArray()
+        ]);
+
+        const activeBookmarkCount = (Array.isArray(bookmarks) ? bookmarks : [])
+            .filter(bookmark => !bookmark?.deletedAt && typeof bookmark?.url === 'string' && bookmark.url.trim())
+            .length;
+
+        if (activeBookmarkCount === 0) {
+            showGlassToast('No bookmarks found to export.', 'info');
+            return;
+        }
+
+        const generatedAt = new Date();
+        const backupHtml = buildChromeBookmarkBackupHtml({
+            pages,
+            boards,
+            bookmarks,
+            generatedAt
+        });
+
+        const safeDate = generatedAt.toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
+        const filename = `LumiList-bookmark-backup-${safeDate}.html`;
+        downloadBackupTextFile(backupHtml, filename, 'text/html;charset=utf-8');
+        showGlassToast(`Backup exported (${activeBookmarkCount.toLocaleString()} bookmarks).`, 'success');
+    } catch (error) {
+        console.error('Failed to export bookmark backup:', error);
+        showGlassToast('Failed to export backup. Please try again.', 'error');
+    } finally {
+        if (exportBtn) {
+            exportBtn.disabled = false;
+            exportBtn.textContent = defaultLabel;
+        }
+    }
+}
+
 async function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
 
@@ -8796,9 +8974,9 @@ async function openSettingsModal() {
     const avatarEl = document.getElementById('settingsUserAvatar');
 
     try {
-        const stored = await chrome.storage.local.get('lumilist_user');
-        if (stored.lumilist_user?.email) {
-            const email = stored.lumilist_user.email;
+        const stored = await chrome.storage.local.get('LumiList_user');
+        if (stored.LumiList_user?.email) {
+            const email = stored.LumiList_user.email;
             emailEl.textContent = email;
             // Set avatar to first letter of email
             if (avatarEl) {
@@ -9853,20 +10031,20 @@ async function startQuickTour(options = {}) {
 async function checkShowOnboarding(isNewUser = false) {
     try {
         // Get current user ID to make the flag user-specific
-        const userResult = await chrome.storage.local.get('lumilist_user');
-        const userId = userResult.lumilist_user?.id;
+        const userResult = await chrome.storage.local.get('LumiList_user');
+        const userId = userResult.LumiList_user?.id;
         if (!userId) {
 
             return;
         }
 
         // Use user-specific key for the onboarding flag
-        const onboardingKey = `lumilist_has_seen_onboarding_${userId}`;
+        const onboardingKey = `LumiList_has_seen_onboarding_${userId}`;
         const result = await chrome.storage.local.get(onboardingKey);
 
         if (!result[onboardingKey]) {
             // Ensure only ONE tab shows onboarding (avoid multi-tab popups)
-            const ownerKey = `lumilist_onboarding_owner_${userId}`;
+            const ownerKey = `LumiList_onboarding_owner_${userId}`;
             const ownerResult = await chrome.storage.local.get(ownerKey);
             const owner = ownerResult[ownerKey];
 
@@ -9878,8 +10056,8 @@ async function checkShowOnboarding(isNewUser = false) {
                     // Schedule a local retry ONLY if this looks like a brand-new account
                     // and we can do so without any server checks.
                     if (!_onboardingRetryTimeoutId) {
-                        const signalResult = await chrome.storage.local.get('lumilist_login_sync_complete');
-                        const signal = signalResult?.lumilist_login_sync_complete;
+                        const signalResult = await chrome.storage.local.get('LumiList_login_sync_complete');
+                        const signal = signalResult?.LumiList_login_sync_complete;
                         if (signal?.userId === userId && signal?.action === 'created_home') {
                             const remaining = OWNER_TTL_MS - (Date.now() - (owner.timestamp || 0));
                             const delay = Math.max(remaining + 50, 50);
@@ -9937,10 +10115,10 @@ async function checkShowOnboarding(isNewUser = false) {
 
                 try {
                     const latestResult = await chrome.storage.local.get([
-                        'lumilist_user',
+                        'LumiList_user',
                         ownerKey
                     ]);
-                    const latestUserId = latestResult?.lumilist_user?.id || null;
+                    const latestUserId = latestResult?.LumiList_user?.id || null;
                     const latestOwner = latestResult?.[ownerKey];
 
                     if (latestUserId !== userId) {
@@ -11119,7 +11297,7 @@ function clearFontColorPreferenceState() {
     updateFontColorSettingControl();
 }
 
-window.__lumilistClearFontColorPreferenceState = clearFontColorPreferenceState;
+window.__LumiListClearFontColorPreferenceState = clearFontColorPreferenceState;
 
 function applyFontColorPreference(fontColor = customFontColor) {
     const normalizedFontColor = normalizeHexColor(fontColor, null);
@@ -11688,7 +11866,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         initSearchFeature();
 
         // Listen for auth failures from SyncManager (e.g., invalid refresh token, 401/403 errors)
-        window.addEventListener('lumilist-auth-failure', async (e) => {
+        window.addEventListener('LumiList-auth-failure', async (e) => {
             await handleSessionInvalidation(
                 e.detail?.reason || 'Session expired. Please login again.'
             );
@@ -11714,7 +11892,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         // CROSS-BROWSER SYNC FIX: Add listener for sync status events
         // This allows UI to respond to sync errors and show appropriate feedback
-        window.addEventListener('lumilist-sync-status', (event) => {
+        window.addEventListener('LumiList-sync-status', (event) => {
             try {
                 const detail = event?.detail;
                 if (!detail) return;
@@ -11934,8 +12112,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 const welcomeScreen = document.getElementById('welcomeScreen');
                 const isWelcomeVisible = welcomeScreen && !welcomeScreen.classList.contains('hidden');
                 if (storedUser?.id && isWelcomeVisible && !isLateAuthReconcileSuppressed()) {
-                    const signalResult = await chrome.storage.local.get('lumilist_login_sync_complete');
-                    const signal = signalResult?.lumilist_login_sync_complete;
+                    const signalResult = await chrome.storage.local.get('LumiList_login_sync_complete');
+                    const signal = signalResult?.LumiList_login_sync_complete;
                     if (signal?.userId === storedUser.id) {
                         await handleLoginSyncCompleteSignal(signal);
                     } else {
@@ -12556,6 +12734,13 @@ function setupModalEventListeners() {
         });
     }
 
+    const settingsExportBackupBtn = document.getElementById('settingsExportBackupBtn');
+    if (settingsExportBackupBtn) {
+        settingsExportBackupBtn.addEventListener('click', () => {
+            exportFullBookmarkBackup();
+        });
+    }
+
     window.addEventListener('focus', () => {
         if (settingsModal && settingsModal.classList.contains('active')) {
             loadSettingsQuickSaveShortcut().catch(err => {
@@ -12610,7 +12795,7 @@ function setupModalEventListeners() {
                 const tabName = navItem.dataset.tab;
 
                 // SPECIAL SECURITY CHECK: If user clicks "Security", ask for admin password
-                if (tabName === 'security' && !lumiListModules.adminAuth.isAuthenticated()) {
+                if (tabName === 'security' && !LumiListModules.adminAuth.isAuthenticated()) {
                     const modal = document.getElementById('adminPasswordModal');
                     const error = document.getElementById('adminPasswordError');
                     const input = document.getElementById('adminPasswordInput');
@@ -12857,7 +13042,7 @@ function setupAuthEventListeners() {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const password = input.value;
-                const success = await lumiListModules.adminAuth.verifyAdminPassword(password);
+                const success = await LumiListModules.adminAuth.verifyAdminPassword(password);
                 
                 if (success) {
                     modal.classList.remove('active');
@@ -12964,9 +13149,9 @@ function setupAuthEventListeners() {
     }
 
     // Initialize Privacy & Security Assistant UI listeners
-    if (lumiListModules.privacyUI) {
-        lumiListModules.privacyUI.attachAnalysisListeners('addBookmarkForm', 'addBookmarkPrivacyAnalysis');
-        lumiListModules.privacyUI.attachAnalysisListeners('editBookmarkForm', 'editBookmarkPrivacyAnalysis');
+    if (LumiListModules.privacyUI) {
+        LumiListModules.privacyUI.attachAnalysisListeners('addBookmarkForm', 'addBookmarkPrivacyAnalysis');
+        LumiListModules.privacyUI.attachAnalysisListeners('editBookmarkForm', 'editBookmarkPrivacyAnalysis');
     }
 
     // Startup auth UI is now handled in DOMContentLoaded so we do not
@@ -14564,7 +14749,7 @@ async function handleLogout() {
 
         // Clean up onboarding ownership key for this user
         if (logoutUserId && typeof chrome !== 'undefined' && chrome.storage?.local) {
-            const ownerKey = `lumilist_onboarding_owner_${logoutUserId}`;
+            const ownerKey = `LumiList_onboarding_owner_${logoutUserId}`;
             await chrome.storage.local.remove(ownerKey);
         }
 
@@ -14757,8 +14942,8 @@ async function executeDeleteAccount() {
 
         await chrome.storage.local.remove([
             // Auth keys
-            'lumilist_user',
-            'lumilist_sync_version',
+            'LumiList_user',
+            'LumiList_sync_version',
             'currentPageId',
             // User preferences (must not leak to next account)
             'privacyModeEnabled',
@@ -14786,7 +14971,7 @@ async function executeDeleteAccount() {
         ].concat(supabaseSessionKeys));
 
         try {
-            localStorage.removeItem('lumilist_theme_mode');
+            localStorage.removeItem('LumiList_theme_mode');
             localStorage.removeItem(WALLPAPER_LOCAL_CACHE_KEY);
             localStorage.removeItem(WALLPAPER_STYLE_LOCAL_CACHE_KEY);
             localStorage.removeItem(FONT_COLOR_LOCAL_CACHE_KEY);
@@ -14854,7 +15039,7 @@ async function handleAuthRedirect(earlyHash = null) {
     const clearAuthParamsFromUrl = () => {
         try {
             const cleanUrl = new URL(window.location.href);
-            ['code', 'state', 'error', 'error_code', 'error_description', 'type', 'lumilist_oauth'].forEach((key) => {
+            ['code', 'state', 'error', 'error_code', 'error_description', 'type', 'LumiList_oauth'].forEach((key) => {
                 cleanUrl.searchParams.delete(key);
             });
             cleanUrl.hash = '';
@@ -15068,7 +15253,7 @@ async function handleAuthRedirect(earlyHash = null) {
             if (user?.id && typeof chrome !== 'undefined' && chrome.storage?.local) {
                 // Claim onboarding ownership for this tab BEFORE broadcasting auth change
                 // This ensures other tabs won't show onboarding while this tab is logging in.
-                const ownerKey = `lumilist_onboarding_owner_${user.id}`;
+                const ownerKey = `LumiList_onboarding_owner_${user.id}`;
                 await chrome.storage.local.set({
                     [ownerKey]: {
                         userId: user.id,

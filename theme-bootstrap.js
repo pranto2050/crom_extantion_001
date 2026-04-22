@@ -1,8 +1,8 @@
 (() => {
-    const WALLPAPER_BOOT_AUTH_HINT_LOCAL_KEY = 'lumilist_wallpaper_boot_auth_hint_v1';
-    const WALLPAPER_LOGGED_OUT_DEFAULT_SNAPSHOT_LOCAL_KEY = 'lumilist_logged_out_default_visual_v1';
-    const SYNC_USER_STORAGE_KEY = 'lumilist_user';
-    const SYNC_SESSION_INVALIDATED_STORAGE_KEY = 'lumilist_session_invalidated';
+    const WALLPAPER_BOOT_AUTH_HINT_LOCAL_KEY = 'LumiList_wallpaper_boot_auth_hint_v1';
+    const WALLPAPER_LOGGED_OUT_DEFAULT_SNAPSHOT_LOCAL_KEY = 'LumiList_logged_out_default_visual_v1';
+    const SYNC_USER_STORAGE_KEY = 'LumiList_user';
+    const SYNC_SESSION_INVALIDATED_STORAGE_KEY = 'LumiList_session_invalidated';
     const DEFAULT_THEME_STYLES = {
         dark: {
             primary: '#05E57B',
@@ -540,7 +540,7 @@
 
     function applyBootFontColorOverride() {
         try {
-            const cachedFontColorRaw = localStorage.getItem('lumilist_font_color');
+            const cachedFontColorRaw = localStorage.getItem('LumiList_font_color');
             const cachedFontColor = normalizeHexColor(cachedFontColorRaw, null);
             if (cachedFontColor) {
                 document.documentElement.style.setProperty('--ll-board-text-color', cachedFontColor);
@@ -603,11 +603,11 @@
     }
 
     function applyCachedUserBootstrapVisual() {
-        const cachedMode = localStorage.getItem('lumilist_theme_mode');
+        const cachedMode = localStorage.getItem('LumiList_theme_mode');
         const mode = cachedMode === 'light' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', mode);
 
-        const cachedStyleRaw = localStorage.getItem('lumilist_wallpaper_style_by_theme');
+        const cachedStyleRaw = localStorage.getItem('LumiList_wallpaper_style_by_theme');
         let cachedStyle = null;
         if (cachedStyleRaw) {
             const parsed = JSON.parse(cachedStyleRaw);
@@ -616,7 +616,7 @@
             }
         }
         try {
-            const directBootStyleRaw = localStorage.getItem(`lumilist_wallpaper_boot_style_${mode}`);
+            const directBootStyleRaw = localStorage.getItem(`LumiList_wallpaper_boot_style_${mode}`);
             if (directBootStyleRaw) {
                 const parsedDirectBootStyle = JSON.parse(directBootStyleRaw);
                 if (parsedDirectBootStyle && typeof parsedDirectBootStyle === 'object') {
@@ -629,7 +629,7 @@
         applyThemeStyleTokens(cachedStyle, mode);
         applyBootFontColorOverride();
 
-        const cachedWallpaperRaw = localStorage.getItem('lumilist_wallpaper_selection');
+        const cachedWallpaperRaw = localStorage.getItem('LumiList_wallpaper_selection');
         if (!cachedWallpaperRaw) {
             document.documentElement.style.setProperty('--ll-app-wallpaper-url', 'none');
             return;
@@ -648,7 +648,7 @@
         let cachedBinaryDataUrl = null;
         let bootFallbackSource = null;
         try {
-            const binaryCacheRaw = localStorage.getItem('lumilist_wallpaper_binary_cache_v1');
+            const binaryCacheRaw = localStorage.getItem('LumiList_wallpaper_binary_cache_v1');
             if (binaryCacheRaw) {
                 const parsedBinaryCache = JSON.parse(binaryCacheRaw);
                 const entry = parsedBinaryCache && typeof parsedBinaryCache === 'object'
@@ -693,7 +693,7 @@
 
     function recordBootWallpaperDiagnostic(detail, counterName = null) {
         try {
-            const storageKey = 'lumilist_wallpaper_diagnostics_v1';
+            const storageKey = 'LumiList_wallpaper_diagnostics_v1';
             const maxEvents = 60;
             const rawState = localStorage.getItem(storageKey);
             const parsedState = rawState ? JSON.parse(rawState) : {};
@@ -744,8 +744,8 @@
         const authHint = localStorage.getItem(WALLPAPER_BOOT_AUTH_HINT_LOCAL_KEY);
         for (const cleanupMode of ['dark', 'light']) {
             try {
-                localStorage.removeItem(`lumilist_wallpaper_boot_source_${cleanupMode}`);
-                localStorage.removeItem(`lumilist_wallpaper_boot_binary_${cleanupMode}`);
+                localStorage.removeItem(`LumiList_wallpaper_boot_source_${cleanupMode}`);
+                localStorage.removeItem(`LumiList_wallpaper_boot_binary_${cleanupMode}`);
             } catch (e) {
                 // Legacy cleanup should never block boot styling.
             }

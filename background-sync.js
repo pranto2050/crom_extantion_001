@@ -284,10 +284,10 @@ async function keepItemsPendingForTransientFailure(items, error, contextLabel = 
  */
 async function getAuthInfo() {
     try {
-        const result = await chrome.storage.local.get([AUTH_TOKEN_KEY, 'lumilist_user', SYNC_AUTH_ERROR_STATE_KEY]);
+        const result = await chrome.storage.local.get([AUTH_TOKEN_KEY, 'LumiList_user', SYNC_AUTH_ERROR_STATE_KEY]);
         const rawSession = result[AUTH_TOKEN_KEY];
         const session = parseStoredSession(rawSession);
-        const user = result.lumilist_user || session?.user || null;
+        const user = result.LumiList_user || session?.user || null;
         const authErrorState = result[SYNC_AUTH_ERROR_STATE_KEY];
 
         if (!session?.access_token) {

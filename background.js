@@ -1,6 +1,6 @@
 /*
 ========================================
-LUMILIST BACKGROUND SERVICE WORKER
+LumiList BACKGROUND SERVICE WORKER
 ========================================
 Handles keyboard shortcut (Ctrl+Shift+Y) and quick save with notifications
 */
@@ -61,9 +61,9 @@ const MAX_SAVE_ALL_TABS = 500;
 
 // Bookmark limit constants (must match newtab.js)
 const BOOKMARK_LIMIT = 100000;
-const BACKGROUND_GET_PAGES_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
+const BACKGROUND_GET_PAGES_LOGIN_SYNC_STATE_STORAGE_KEY = 'LumiList_login_sync_state';
 
-const SYNC_RETRY_ALARM_NAME = 'lumilistSyncRetry';
+const SYNC_RETRY_ALARM_NAME = 'LumiListSyncRetry';
 const SYNC_RETRY_ALARM_PERIOD_MINUTES = 1;
 const SYNC_PUSH_PENDING_STORAGE_KEY = 'syncPushPending';
 
@@ -168,12 +168,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes?.lumilist_user || typeof BackgroundSync === 'undefined') {
+    if (areaName !== 'local' || !changes?.LumiList_user || typeof BackgroundSync === 'undefined') {
         return;
     }
 
-    const oldUserId = changes.lumilist_user.oldValue?.id || null;
-    const newUserId = changes.lumilist_user.newValue?.id || null;
+    const oldUserId = changes.LumiList_user.oldValue?.id || null;
+    const newUserId = changes.LumiList_user.newValue?.id || null;
 
     if (!oldUserId) {
         return;

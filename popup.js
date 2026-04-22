@@ -9,8 +9,8 @@ const SAVE_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" 
 const SAVE_ALL_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect></svg>`;
 const WARNING_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
 const BUTTON_SPINNER = '<span class="spinner" aria-hidden="true"></span>';
-const POPUP_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
-const POPUP_SESSION_INVALIDATION_STORAGE_KEY = 'lumilist_session_invalidated';
+const POPUP_LOGIN_SYNC_STATE_STORAGE_KEY = 'LumiList_login_sync_state';
+const POPUP_SESSION_INVALIDATION_STORAGE_KEY = 'LumiList_session_invalidated';
 const SELECT_PAGE_PLACEHOLDER_VALUE = '';
 const SELECT_BOARD_PLACEHOLDER_VALUE = '';
 
@@ -81,14 +81,14 @@ async function loadAndApplyThemeMode(options = {}) {
             if (result && (result.themeMode === 'dark' || result.themeMode === 'light')) {
                 resolvedMode = result.themeMode;
             } else {
-                const cachedMode = localStorage.getItem('lumilist_theme_mode');
+                const cachedMode = localStorage.getItem('LumiList_theme_mode');
                 if (cachedMode === 'dark' || cachedMode === 'light') {
                     resolvedMode = cachedMode;
                 }
             }
         } catch (error) {
             console.warn('Failed to load popup theme mode from storage:', error);
-            const cachedMode = localStorage.getItem('lumilist_theme_mode');
+            const cachedMode = localStorage.getItem('LumiList_theme_mode');
             if (cachedMode === 'dark' || cachedMode === 'light') {
                 resolvedMode = cachedMode;
             }
@@ -99,7 +99,7 @@ async function loadAndApplyThemeMode(options = {}) {
     document.documentElement.setAttribute('data-theme', normalized);
 
     try {
-        localStorage.setItem('lumilist_theme_mode', normalized);
+        localStorage.setItem('LumiList_theme_mode', normalized);
     } catch (e) {
         // non-blocking local cache write
     }
@@ -299,12 +299,12 @@ function normalizePopupLoginSyncState(rawState) {
 
 async function getPopupAccountSyncState() {
     const result = await chrome.storage.local.get([
-        'lumilist_user',
+        'LumiList_user',
         POPUP_SESSION_INVALIDATION_STORAGE_KEY,
         POPUP_LOGIN_SYNC_STATE_STORAGE_KEY
     ]);
-    const activeUserId = (typeof result?.lumilist_user?.id === 'string' && result.lumilist_user.id.trim())
-        ? result.lumilist_user.id.trim()
+    const activeUserId = (typeof result?.LumiList_user?.id === 'string' && result.LumiList_user.id.trim())
+        ? result.LumiList_user.id.trim()
         : null;
     const loginSyncState = normalizePopupLoginSyncState(result?.[POPUP_LOGIN_SYNC_STATE_STORAGE_KEY]);
     const invalidation = result?.[POPUP_SESSION_INVALIDATION_STORAGE_KEY];
@@ -660,8 +660,8 @@ if (chrome?.storage?.onChanged) {
         if (areaName !== 'local') return;
 
         const popupAccountBoundaryChanged =
-            changes.lumilist_user
-            || changes.lumilist_session_invalidated
+            changes.LumiList_user
+            || changes.LumiList_session_invalidated
             || changes[POPUP_LOGIN_SYNC_STATE_STORAGE_KEY];
 
         if (changes.themeMode || popupAccountBoundaryChanged) {

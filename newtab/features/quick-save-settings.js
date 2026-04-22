@@ -9,8 +9,8 @@
             shortcutsSettingsUrl,
             extensionsSettingsUrl
         } = options;
-        const QUICK_SAVE_SETTINGS_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
-        const QUICK_SAVE_SETTINGS_SESSION_INVALIDATED_STORAGE_KEY = 'lumilist_session_invalidated';
+        const QUICK_SAVE_SETTINGS_LOGIN_SYNC_STATE_STORAGE_KEY = 'LumiList_login_sync_state';
+        const QUICK_SAVE_SETTINGS_SESSION_INVALIDATED_STORAGE_KEY = 'LumiList_session_invalidated';
 
         function normalizeQuickSaveSettingsLoginSyncState(rawState) {
             if (!rawState || typeof rawState !== 'object') return null;
@@ -31,12 +31,12 @@
 
         async function getQuickSaveSettingsAccountState() {
             const result = await chrome.storage.local.get([
-                'lumilist_user',
+                'LumiList_user',
                 QUICK_SAVE_SETTINGS_SESSION_INVALIDATED_STORAGE_KEY,
                 QUICK_SAVE_SETTINGS_LOGIN_SYNC_STATE_STORAGE_KEY
             ]);
-            const activeUserId = (typeof result?.lumilist_user?.id === 'string' && result.lumilist_user.id.trim())
-                ? result.lumilist_user.id.trim()
+            const activeUserId = (typeof result?.LumiList_user?.id === 'string' && result.LumiList_user.id.trim())
+                ? result.LumiList_user.id.trim()
                 : null;
             const loginSyncState = normalizeQuickSaveSettingsLoginSyncState(
                 result?.[QUICK_SAVE_SETTINGS_LOGIN_SYNC_STATE_STORAGE_KEY]

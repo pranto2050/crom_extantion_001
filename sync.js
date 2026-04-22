@@ -21,8 +21,8 @@ const TRANSIENT_PULL_BACKOFF_MS = 60000;
 const TRANSIENT_NETWORK_DEGRADED_WINDOW_MS = 10 * 60 * 1000;
 const SUBSCRIPTION_LAST_KNOWN_KEY = 'subscriptionLastKnownState';
 const SYNC_MANAGER_WALLPAPER_CLOUD_SYNC_STATE_STORAGE_KEY = 'wallpaperCloudSyncState';
-const SYNC_MANAGER_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
-const SYNC_MANAGER_LOGIN_SYNC_COMPLETE_STORAGE_KEY = 'lumilist_login_sync_complete';
+const SYNC_MANAGER_LOGIN_SYNC_STATE_STORAGE_KEY = 'LumiList_login_sync_state';
+const SYNC_MANAGER_LOGIN_SYNC_COMPLETE_STORAGE_KEY = 'LumiList_login_sync_complete';
 const SYNC_MANAGER_ACCOUNT_BOUNDARY_STORAGE_KEYS = [
     'currentPageId',
     'privacyModeEnabled',
@@ -430,10 +430,10 @@ const SyncManager = {
     SYNC_BOOKMARK_LIMIT: 102000,   // Server-side: 102,000 (100,000 + 2% buffer)
 
     // Storage keys (keeping same keys for compatibility)
-    USER_KEY: 'lumilist_user',
-    SESSION_INVALIDATED_KEY: 'lumilist_session_invalidated',
-    SYNC_VERSION_KEY: 'lumilist_sync_version',
-    DELTA_SYNC_KEY: 'lumilist_last_delta_sync',
+    USER_KEY: 'LumiList_user',
+    SESSION_INVALIDATED_KEY: 'LumiList_session_invalidated',
+    SYNC_VERSION_KEY: 'LumiList_sync_version',
+    DELTA_SYNC_KEY: 'LumiList_last_delta_sync',
     AUTH_TOKEN_KEY_SUFFIX: '-auth-token',
     NATIVE_CHROME_OAUTH_EXTENSION_IDS: [
         'cojaakbhllmokhfioangjgnaphkmljkc', // current unpacked/dev folder
@@ -589,7 +589,7 @@ const SyncManager = {
         extensionUrl.search = authUrl.search;
         // Force a full document navigation back into newtab.html.
         // A hash-only update on the already-open extension tab would not rerun startup auth handling.
-        extensionUrl.searchParams.set('lumilist_oauth', '1');
+        extensionUrl.searchParams.set('LumiList_oauth', '1');
         extensionUrl.hash = authUrl.hash;
         return extensionUrl.toString();
     },
@@ -598,7 +598,7 @@ const SyncManager = {
         try {
             if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
                 await chrome.storage.local.set({
-                    lumilist_last_oauth_redirect: {
+                    LumiList_last_oauth_redirect: {
                         ...debugInfo,
                         timestamp: new Date().toISOString()
                     }
@@ -1656,8 +1656,8 @@ const SyncManager = {
         const preserveStoredUser = options.preserveStoredUser === true;
         const preserveSessionInvalidation = options.preserveSessionInvalidation === true;
         const knownKeys = [
-            this.SYNC_VERSION_KEY,                 // lumilist_sync_version
-            this.DELTA_SYNC_KEY,                   // lumilist_last_delta_sync (delta sync timestamp)
+            this.SYNC_VERSION_KEY,                 // LumiList_sync_version
+            this.DELTA_SYNC_KEY,                   // LumiList_last_delta_sync (delta sync timestamp)
             'subscriptionStatus',                  // Subscription status cache
             'subscriptionDaysLeft',                // Days left cache
             'subscriptionData',                    // Full subscription data cache
@@ -1709,7 +1709,7 @@ const SyncManager = {
                                 localStorage.removeItem(k);
                                 
                             });
-                            localStorage.removeItem('lumilist_theme_mode');
+                            localStorage.removeItem('LumiList_theme_mode');
                         }
                     } catch (e) {
                         console.warn('clearAuth: localStorage cleanup failed:', e);
@@ -1783,7 +1783,7 @@ const SyncManager = {
 
         // Notify UI to show login screen
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('lumilist-auth-failure', {
+            window.dispatchEvent(new CustomEvent('LumiList-auth-failure', {
                 detail: { reason }
             }));
         }
@@ -3192,7 +3192,7 @@ const SyncManager = {
                 //
                 // Correct behavior: Local items not on server should be PUSHED to server, not deleted locally.
                 // Server-side deletions are synced via deletedAt field in the server→local merge above.
-                // See: https://github.com/lumilist/issues - "Data Loss on Page Refresh After Import"
+                // See: https://github.com/LumiList/issues - "Data Loss on Page Refresh After Import"
 
                 // Merge boards
                 const localBoards = await db.boards.toArray();
@@ -3645,7 +3645,7 @@ const SyncManager = {
      */
     _notifySyncStatus(status, detail = null) {
         if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('lumilist-sync-status', {
+            window.dispatchEvent(new CustomEvent('LumiList-sync-status', {
                 detail: { status, detail, timestamp: Date.now() }
             }));
         }
@@ -4121,7 +4121,7 @@ const SyncManager = {
         try {
             if (typeof localStorage !== 'undefined') {
                 const keysToRemove = Object.keys(localStorage).filter(k =>
-                    k.startsWith('sb-') || k.includes('supabase') || k.includes('lumilist')
+                    k.startsWith('sb-') || k.includes('supabase') || k.includes('LumiList')
                 );
                 keysToRemove.forEach(k => localStorage.removeItem(k));
                 
@@ -4147,7 +4147,7 @@ if (typeof window !== 'undefined') {
     // Cache invalidation listener: reset Supabase client when user logs out
     // This ensures the client is re-initialized fresh on next login
     chrome.storage.onChanged.addListener((changes, areaName) => {
-        if (areaName === 'local' && changes.lumilist_user && !changes.lumilist_user.newValue) {
+        if (areaName === 'local' && changes.LumiList_user && !changes.LumiList_user.newValue) {
             
             SyncManager._supabase = null;
         }

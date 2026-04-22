@@ -1,7 +1,7 @@
 // Review prompt policy controls (user-scoped state is persisted in chrome.storage.local)
 const REVIEW_PROMPT_STORAGE_VERSION = 1;
-const REVIEW_PROMPT_STATE_KEY_PREFIX = 'lumilist_review_prompt_v1_';
-const REVIEW_PROMPT_INSTALL_TS_KEY = 'lumilist_review_install_timestamp';
+const REVIEW_PROMPT_STATE_KEY_PREFIX = 'LumiList_review_prompt_v1_';
+const REVIEW_PROMPT_INSTALL_TS_KEY = 'LumiList_review_install_timestamp';
 const REVIEW_PROMPT_MIN_BOOKMARKS = 20;
 const REVIEW_PROMPT_MIN_INSTALL_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const REVIEW_PROMPT_TRIAL_WARNING_DAYS_THRESHOLD = 3;
@@ -125,8 +125,8 @@ async function resolveReviewPromptUserId(explicitUserId = null) {
     if (typeof explicitUserId === 'string' && explicitUserId.trim()) {
         return explicitUserId.trim();
     }
-    const result = await chrome.storage.local.get('lumilist_user');
-    return result?.lumilist_user?.id || null;
+    const result = await chrome.storage.local.get('LumiList_user');
+    return result?.LumiList_user?.id || null;
 }
 
 async function mutateReviewPromptState(userId, mutator) {

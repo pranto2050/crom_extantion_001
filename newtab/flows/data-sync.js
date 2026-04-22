@@ -1499,7 +1499,7 @@ function getSyncQueueScopeKey(tableName, recordId, sourceUserId = null) {
 
 function getLoadedWorkspaceOwnerUserId() {
     if (typeof window === 'undefined') return null;
-    return normalizeSyncSourceUserId(window.__lumilistWorkspaceOwnerUserId);
+    return normalizeSyncSourceUserId(window.__LumiListWorkspaceOwnerUserId);
 }
 
 async function getStoredSyncUserId() {
@@ -1508,8 +1508,8 @@ async function getStoredSyncUserId() {
     }
 
     try {
-        const result = await chrome.storage.local.get('lumilist_user');
-        return normalizeSyncSourceUserId(result?.lumilist_user?.id);
+        const result = await chrome.storage.local.get('LumiList_user');
+        return normalizeSyncSourceUserId(result?.LumiList_user?.id);
     } catch (error) {
         console.warn('[Sync] Failed to read stored user for queue scoping:', error);
         return null;
@@ -1529,7 +1529,7 @@ function notifyStaleWorkspaceMutationBlocked(message, details = {}) {
 
     try {
         if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
-            window.dispatchEvent(new CustomEvent('lumilist-stale-workspace-blocked', {
+            window.dispatchEvent(new CustomEvent('LumiList-stale-workspace-blocked', {
                 detail: {
                     message,
                     ...details,
