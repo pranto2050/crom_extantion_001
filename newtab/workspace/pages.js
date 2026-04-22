@@ -721,6 +721,12 @@ async function handleTabAction(action, page) {
             // Refresh navigation
             await loadPagesNavigation();
             broadcastDataChange('moveToTrash');
+            const feedback = window.LumiListModules?.feedback;
+            if (typeof feedback?.showDeleteSuccessToast === 'function') {
+                feedback.showDeleteSuccessToast('Deleted successfully.');
+            } else {
+                showGlassToast('Deleted successfully.', 'success');
+            }
         }
     } catch (error) {
         console.error('Failed to handle tab action:', error);

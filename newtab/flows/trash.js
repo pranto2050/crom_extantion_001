@@ -1464,6 +1464,12 @@ async function handlePermanentDelete(type, id, btn) {
             await loadBoardsFromDatabase();
             await loadPagesNavigation();
             broadcastDataChange('permanentlyDelete');
+            const feedback = window.LumiListModules?.feedback;
+            if (typeof feedback?.showDeleteSuccessToast === 'function') {
+                feedback.showDeleteSuccessToast('Deleted successfully.');
+            } else {
+                showGlassToast('Deleted successfully.', 'success');
+            }
         } else {
             showGlassToast(result.error || 'Failed to delete item', 'error');
             // Restore button on error
@@ -1849,6 +1855,12 @@ async function confirmDeletion() {
             await loadPagesNavigation();
         }
         broadcastDataChange('moveToTrash');
+        const feedback = window.LumiListModules?.feedback;
+        if (typeof feedback?.showDeleteSuccessToast === 'function') {
+            feedback.showDeleteSuccessToast('Deleted successfully.');
+        } else {
+            showGlassToast('Deleted successfully.', 'success');
+        }
 
     } catch (error) {
         console.error('Failed to delete item:', error);

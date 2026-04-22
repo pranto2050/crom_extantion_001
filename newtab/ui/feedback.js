@@ -104,6 +104,11 @@
         };
     }
 
+    // Dedicated success feedback for delete actions so delete flows use a single, consistent component.
+    function showDeleteSuccessToast(message = 'Deleted successfully.') {
+        return showGlassToast(message, 'success', 2800);
+    }
+
     function showGlassConfirm(title, message, options = {}) {
         return new Promise((resolve) => {
             const modal = document.getElementById('glassConfirmModal');
@@ -175,6 +180,7 @@
     modules.feedback = {
         updateLoadingMessage,
         showGlassToast,
-        showGlassConfirm
+        showGlassConfirm,
+        showDeleteSuccessToast
     };
 })(window);
