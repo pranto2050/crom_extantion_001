@@ -1,5 +1,9 @@
 # LumiList - Personal Bookmark Manager
 
+## 📸 Preview
+
+![Demo Image](demo.png)
+
 LumiList is a powerful and beautiful bookmark manager designed to help you organize your digital life with ease. It features a column-based board layout, password-protected pages, and customizable themes.
 
 ## 🚀 How to Use
@@ -58,7 +62,9 @@ You can restrict access to specific pages by setting a password.
   3. Enter the **Admin Password** when prompted.
   4. Under "Lock Page", select the page you want to protect from the dropdown.
   5. Enter a password for that page and click **Lock Selected Page**.
+
 - **How to Use**: When you try to switch to a locked page, LumiList will prompt you for the page's password before revealing its contents.
+
 - **How to Change/Remove**: In the **Security** tab (after Admin authentication), you will see a list of "Locked Pages" where you can manage or unlock them.
 
 ---
