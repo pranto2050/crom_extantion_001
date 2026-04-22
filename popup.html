@@ -555,7 +555,13 @@
             <div class="setting-row">
                 <span class="setting-label">Save to page:</span>
                 <select id="quickSavePage" class="setting-select">
-                    <option value="current">Current Page</option>
+                    <option value="">Select page</option>
+                </select>
+            </div>
+            <div class="setting-row" id="boardSettingRow" style="display: none;">
+                <span class="setting-label">Save to board:</span>
+                <select id="quickSaveBoard" class="setting-select">
+                    <option value="">Select board</option>
                 </select>
             </div>
             <div class="setting-row">
@@ -579,7 +585,7 @@
             </svg>
         </div>
         <div class="title">Saved!</div>
-        <div class="message">Added to Quick Saved board on</div>
+        <div class="message">Added to selected board on</div>
         <div class="page-name" id="pageName"></div>
     </div>
 
@@ -609,7 +615,7 @@
         </div>
         <div class="saved-count" id="savedTabCount">0</div>
         <div class="title">Tabs Saved!</div>
-        <div class="message">Added to Quick Saved board on</div>
+        <div class="message">Added to selected page on</div>
         <div class="page-name" id="saveAllPageName"></div>
     </div>
 

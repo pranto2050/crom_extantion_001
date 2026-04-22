@@ -5,6 +5,10 @@
 const BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
 const CLOSE_TABS_AFTER_SAVE_ALL_STORAGE_KEY = 'closeTabsAfterSaveAllTabs';
 const QUICK_SAVE_COMMAND_NAME = 'quick-save';
+const SHORTCUT_BOARD_PICKER_PATH = 'shortcut-save.html';
+const SHORTCUT_DEFAULT_BOARD_STORAGE_KEY = 'shortcutDefaultBoardId';
+const SHORTCUT_LAST_USED_BOARD_STORAGE_KEY = 'shortcutLastBoardId';
+const SHORTCUT_USE_LAST_BOARD_STORAGE_KEY = 'shortcutUseLastBoard';
 const SAVE_THIS_PAGE_CONTEXT_MENU_ID = 'saveThisPage';
 const SAVE_PAGE_LINKS_CONTEXT_MENU_ID = 'savePageLinks';
 const SAVE_THIS_LINK_CONTEXT_MENU_ID = 'saveThisLink';
@@ -1681,18 +1685,122 @@ async function resolveQuickSaveTargetPage(storageData = {}) {
     };
 }
 
+function sortBoardsForShortcutPicker(boards = [], pagesById = new Map()) {
+    return boards.slice().sort((a, b) => {
+        const pageA = pagesById.get(a.pageId);
+        const pageB = pagesById.get(b.pageId);
+        const pageOrderA = Number.isFinite(pageA?.order) ? pageA.order : 0;
+        const pageOrderB = Number.isFinite(pageB?.order) ? pageB.order : 0;
+        if (pageOrderA !== pageOrderB) return pageOrderA - pageOrderB;
+
+        const pageNameA = (pageA?.name || '').toLowerCase();
+        const pageNameB = (pageB?.name || '').toLowerCase();
+        if (pageNameA !== pageNameB) return pageNameA.localeCompare(pageNameB);
+
+        const columnA = Number.isFinite(a.columnIndex) ? a.columnIndex : 0;
+        const columnB = Number.isFinite(b.columnIndex) ? b.columnIndex : 0;
+        if (columnA !== columnB) return columnA - columnB;
+
+        const orderA = Number.isFinite(a.order) ? a.order : 0;
+        const orderB = Number.isFinite(b.order) ? b.order : 0;
+        if (orderA !== orderB) return orderA - orderB;
+
+        return (a.name || '').localeCompare(b.name || '');
+    });
+}
+
+async function getShortcutBoardPickerData() {
+    const dbReady = await ensureDbReady();
+    if (!dbReady) {
+        return { success: false, message: 'Database not ready. Please try again.' };
+    }
+
+    const storageData = await chrome.storage.local.get([
+        'lumilist_user',
+        BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY,
+        'quickSavePageId',
+        'currentPageId',
+        SHORTCUT_DEFAULT_BOARD_STORAGE_KEY,
+        SHORTCUT_LAST_USED_BOARD_STORAGE_KEY,
+        SHORTCUT_USE_LAST_BOARD_STORAGE_KEY
+    ]);
+
+    if (!storageData.lumilist_user) {
+        return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
+    }
+
+    const saveGuard = getBackgroundSaveGuardResult(storageData);
+    if (!saveGuard.allowed) {
+        return { success: false, message: saveGuard.message, loginSyncPending: true };
+    }
+
+    const pages = await db.pages.orderBy('order').filter((page) => !page.deletedAt).toArray();
+    const pagesById = new Map(pages.map((page) => [page.id, page]));
+
+    const boardsRaw = await db.boards.filter((board) => !board.deletedAt && pagesById.has(board.pageId)).toArray();
+    const boards = sortBoardsForShortcutPicker(boardsRaw, pagesById).map((board) => ({
+        id: board.id,
+        name: board.name || 'Untitled Board',
+        pageId: board.pageId,
+        pageName: pagesById.get(board.pageId)?.name || 'Untitled Page'
+    }));
+
+    const boardIds = new Set(boards.map((board) => board.id));
+    const useLast = storageData?.[SHORTCUT_USE_LAST_BOARD_STORAGE_KEY] === true;
+    const preferredBoardId = typeof storageData?.[SHORTCUT_DEFAULT_BOARD_STORAGE_KEY] === 'string'
+        ? storageData[SHORTCUT_DEFAULT_BOARD_STORAGE_KEY]
+        : '';
+    const lastBoardId = typeof storageData?.[SHORTCUT_LAST_USED_BOARD_STORAGE_KEY] === 'string'
+        ? storageData[SHORTCUT_LAST_USED_BOARD_STORAGE_KEY]
+        : '';
+
+    const selectedBoardId = useLast && boardIds.has(lastBoardId)
+        ? lastBoardId
+        : (boardIds.has(preferredBoardId) ? preferredBoardId : '');
+
+    return {
+        success: true,
+        boards,
+        selectedBoardId
+    };
+}
+
+async function openShortcutBoardPickerForCommand(tab) {
+    const query = tab?.id ? `?tabId=${encodeURIComponent(tab.id)}` : '';
+    const url = chrome.runtime.getURL(`${SHORTCUT_BOARD_PICKER_PATH}${query}`);
+
+    return new Promise((resolve, reject) => {
+        chrome.windows.create({
+            url,
+            type: 'popup',
+            width: 560,
+            height: 560,
+            focused: true
+        }, (windowRef) => {
+            if (chrome.runtime?.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+            resolve(windowRef);
+        });
+    });
+}
+
 // Listen for keyboard shortcut
 chrome.commands.onCommand.addListener(async (command) => {
     
-    if (command === 'quick-save') {
-        // Get the active tab for toast notification
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const result = await quickSaveCurrentTab();
-        // Show toast notification on the page (fire-and-forget for instant feedback)
-        if (tab && tab.id) {
-            showSaveNotification(result, tab.id, tab.url).catch(err =>
-                console.error('[QuickSave] Toast notification failed:', err)
-            );
+    if (command === QUICK_SAVE_COMMAND_NAME) {
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            await openShortcutBoardPickerForCommand(tab || null);
+        } catch (error) {
+            console.error('[QuickSave] Failed to open shortcut board picker:', error);
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab?.id) {
+                showSaveNotification({ success: false, message: 'Failed to open board picker.' }, tab.id, tab.url).catch(err =>
+                    console.error('[QuickSave] Fallback toast failed:', err)
+                );
+            }
         }
     }
 });
@@ -2467,6 +2575,253 @@ async function quickSaveTab(tab) {
         return { success: false, message: 'Failed to save: ' + error.message };
     } finally {
         // FIX [Critical #1]: Always release mutex, even on error or early return
+        _isQuickSaving = false;
+    }
+}
+
+async function quickSaveTabToBoard(tab, boardId) {
+    if (!boardId || typeof boardId !== 'string') {
+        return { success: false, message: 'Please choose a board.' };
+    }
+
+    if (_isQuickSaving) {
+        return { success: false, message: 'Save already in progress' };
+    }
+    _isQuickSaving = true;
+
+    try {
+        const dbReady = await ensureDbReady();
+        if (!dbReady) {
+            return { success: false, message: 'Database not ready. Please try again.' };
+        }
+
+        const storageData = await chrome.storage.local.get([
+            'lumilist_user',
+            'subscriptionStatus',
+            'subscriptionData',
+            'subscriptionLastKnownState',
+            BACKGROUND_LOGIN_SYNC_STATE_STORAGE_KEY
+        ]);
+
+        if (!storageData.lumilist_user) {
+            return { success: false, message: 'Please login to save bookmarks', requiresLogin: true };
+        }
+
+        const subscriptionAccess = await resolveBackgroundSubscriptionWriteAccess(storageData);
+        const subAccess = subscriptionAccess.subAccess;
+        if (!subAccess.allowed) {
+            return {
+                success: false,
+                message: subAccess.message,
+                requiresSubscription: !!subAccess.requiresSubscription,
+                requiresStatusRefresh: !!subAccess.requiresStatusRefresh
+            };
+        }
+
+        const saveGuard = getBackgroundSaveGuardResult(storageData);
+        if (!saveGuard.allowed) {
+            return { success: false, message: saveGuard.message, loginSyncPending: true };
+        }
+
+        const limitCheck = await checkBookmarkLimitFromDB();
+        if (!limitCheck.allowed) {
+            return { success: false, message: `Bookmark limit reached (${limitCheck.count.toLocaleString()}/${limitCheck.limit.toLocaleString()}). Delete some bookmarks to add more.` };
+        }
+
+        if (!tab || !tab.url) {
+            return { success: false, message: 'No tab to save' };
+        }
+
+        if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
+            return { success: false, message: 'Cannot save browser pages' };
+        }
+
+        const saveResult = await db.transaction('rw', [db.pages, db.boards, db.bookmarks], async () => {
+            const board = await db.boards.get(boardId);
+            if (!board || board.deletedAt) {
+                return { missingBoard: true };
+            }
+
+            const parentPage = await db.pages.get(board.pageId);
+            if (!parentPage || parentPage.deletedAt) {
+                return { missingPage: true };
+            }
+
+            const allBookmarks = await db.bookmarks.where('boardId').equals(board.id).toArray();
+            const normalizedTabUrl = normalizeUrl(tab.url);
+            const existingBookmark = allBookmarks
+                .filter((bookmark) => !bookmark.deletedAt)
+                .find((bookmark) => normalizeUrl(bookmark.url) === normalizedTabUrl);
+
+            if (existingBookmark) {
+                return {
+                    alreadySaved: true,
+                    boardName: board.name || 'Untitled Board',
+                    pageName: parentPage.name || 'Unknown'
+                };
+            }
+
+            const activeBookmarks = allBookmarks.filter((bookmark) => !bookmark.deletedAt);
+            const updatedBookmarksBeforeRows = activeBookmarks.map((bookmark) => cloneBackgroundHistorySnapshot(bookmark));
+            const nowIso = new Date().toISOString();
+
+            await Promise.all(activeBookmarks.map((bookmark) =>
+                db.bookmarks.update(bookmark.id, { order: (bookmark.order || 0) + 1, updatedAt: nowIso })
+            ));
+
+            const newBookmarkId = generateId();
+            await db.bookmarks.add({
+                id: newBookmarkId,
+                boardId: board.id,
+                title: tab.title || 'Untitled',
+                url: tab.url,
+                description: null,
+                order: 0,
+                createdAt: new Date(),
+                updatedAt: nowIso
+            });
+
+            return {
+                alreadySaved: false,
+                boardName: board.name || 'Untitled Board',
+                pageName: parentPage.name || 'Unknown',
+                newBookmarkId,
+                updatedBookmarkIds: activeBookmarks.map((bookmark) => bookmark.id),
+                updatedBookmarksBeforeRows
+            };
+        });
+
+        if (saveResult.missingBoard) {
+            return { success: false, message: 'Selected board no longer exists. Refresh and try again.' };
+        }
+
+        if (saveResult.missingPage) {
+            return { success: false, message: 'Selected board page is no longer available.' };
+        }
+
+        if (saveResult.alreadySaved) {
+            await showBadge('info');
+            return {
+                success: true,
+                message: `Already saved in "${saveResult.boardName}".`,
+                boardName: saveResult.boardName,
+                pageName: saveResult.pageName
+            };
+        }
+
+        let syncQueueResult = { success: true };
+        if (typeof BackgroundSync !== 'undefined') {
+            try {
+                const syncOperations = [];
+
+                const newBookmark = await db.bookmarks.get(saveResult.newBookmarkId);
+                if (newBookmark) {
+                    syncOperations.push({
+                        operation: 'upsert',
+                        tableName: 'bookmarks',
+                        recordId: newBookmark.id,
+                        data: newBookmark
+                    });
+                }
+
+                for (const bookmarkId of saveResult.updatedBookmarkIds || []) {
+                    const bookmark = await db.bookmarks.get(bookmarkId);
+                    if (!bookmark) continue;
+                    syncOperations.push({
+                        operation: 'upsert',
+                        tableName: 'bookmarks',
+                        recordId: bookmark.id,
+                        data: bookmark
+                    });
+                }
+
+                syncQueueResult = await queueBackgroundSyncOpsWithRetry(syncOperations, 'QuickSaveToBoard');
+                if (syncQueueResult.success) {
+                    BackgroundSync.forcePush().catch((error) =>
+                        console.error('[QuickSaveToBoard] Background sync failed:', error)
+                    );
+                }
+            } catch (syncError) {
+                syncQueueResult = { success: false, error: syncError };
+                console.error('[QuickSaveToBoard] Failed to queue sync:', syncError);
+            }
+        } else {
+            syncQueueResult = { success: false, error: new Error('BackgroundSync not available') };
+        }
+
+        if (!syncQueueResult.success) {
+            try {
+                await rollbackBackgroundMutationChanges({
+                    createdBookmarkIds: [saveResult.newBookmarkId],
+                    restoredBookmarksBefore: saveResult.updatedBookmarksBeforeRows || []
+                });
+            } catch (rollbackError) {
+                console.error('[QuickSaveToBoard] Failed to roll back mutation after queue failure:', rollbackError);
+            }
+            await showBadge('error');
+            return { success: false, message: 'Failed to save right now. Please try again.' };
+        }
+
+        await showBadge('success');
+
+        const historyOps = [];
+        if (saveResult.updatedBookmarkIds?.length) {
+            const updatedBookmarkAfterRows = (await db.bookmarks.bulkGet(saveResult.updatedBookmarkIds)).filter(Boolean);
+            const updatedBookmarkBeforeById = new Map(
+                (saveResult.updatedBookmarksBeforeRows || [])
+                    .filter((bookmark) => !!bookmark?.id)
+                    .map((bookmark) => [bookmark.id, bookmark])
+            );
+
+            updatedBookmarkAfterRows.forEach((bookmark) => {
+                historyOps.push({
+                    table: 'bookmarks',
+                    id: bookmark.id,
+                    before: updatedBookmarkBeforeById.get(bookmark.id) || null,
+                    after: bookmark
+                });
+            });
+        }
+
+        const createdBookmark = await db.bookmarks.get(saveResult.newBookmarkId);
+        if (createdBookmark) {
+            historyOps.push({
+                table: 'bookmarks',
+                id: createdBookmark.id,
+                before: null,
+                after: createdBookmark
+            });
+        }
+
+        if (historyOps.length > 0) {
+            await recordBackgroundHistoryEntry({
+                kind: 'bookmark_quick_save_shortcut_board',
+                label: `Quick save tab to board "${(saveResult.boardName || 'Untitled Board').toString().slice(0, 80)}"`,
+                ops: historyOps
+            });
+        }
+
+        try {
+            await trackReviewPromptManualBookmarks(storageData.lumilist_user?.id, 1);
+        } catch (reviewTrackError) {
+            console.warn('[ReviewPrompt] Failed to track shortcut board quick-save count:', reviewTrackError);
+        }
+
+        refreshLumiListTabs().catch((error) =>
+            console.error('[QuickSaveToBoard] Failed to refresh tabs:', error)
+        );
+
+        return {
+            success: true,
+            message: `Saved to "${saveResult.boardName}" on "${saveResult.pageName}".`,
+            boardName: saveResult.boardName,
+            pageName: saveResult.pageName
+        };
+    } catch (error) {
+        console.error('[QuickSaveToBoard] Save failed:', error);
+        await showBadge('error');
+        return { success: false, message: 'Failed to save: ' + error.message };
+    } finally {
         _isQuickSaving = false;
     }
 }

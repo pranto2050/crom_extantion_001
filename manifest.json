@@ -16,7 +16,7 @@
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     },
-    "default_title": "Quick Save to LumiList (Ctrl/Cmd+Shift+Y)"
+    "default_title": "Open Save to Board (Ctrl/Cmd+Shift+Y)"
   },
   "background": {
     "service_worker": "background.js"
@@ -27,7 +27,7 @@
         "default": "Ctrl+Shift+Y",
         "mac": "Command+Shift+Y"
       },
-      "description": "Quick save current page to LumiList"
+      "description": "Open board picker to save current page"
     }
   },
   "permissions": [

@@ -11,6 +11,36 @@ const WARNING_BUTTON_ICON = `<svg class="btn-icon" viewBox="0 0 24 24" fill="non
 const BUTTON_SPINNER = '<span class="spinner" aria-hidden="true"></span>';
 const POPUP_LOGIN_SYNC_STATE_STORAGE_KEY = 'lumilist_login_sync_state';
 const POPUP_SESSION_INVALIDATION_STORAGE_KEY = 'lumilist_session_invalidated';
+const SELECT_PAGE_PLACEHOLDER_VALUE = '';
+const SELECT_BOARD_PLACEHOLDER_VALUE = '';
+
+let popupActiveTabId = null;
+let popupCanSaveCurrentTab = true;
+
+function showBoardSettingRow(visible) {
+    const row = document.getElementById('boardSettingRow');
+    if (!row) return;
+    row.style.display = visible ? 'flex' : 'none';
+}
+
+function resetQuickSaveBoardDropdown(select, { disabled = true } = {}) {
+    if (!select) return;
+    select.innerHTML = '<option value="">Select board</option>';
+    select.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+    select.disabled = disabled;
+}
+
+function updatePopupSaveButtonAvailability() {
+    const pageSelect = document.getElementById('quickSavePage');
+    const boardSelect = document.getElementById('quickSaveBoard');
+    const selectedPageId = pageSelect?.value || SELECT_PAGE_PLACEHOLDER_VALUE;
+    const selectedBoardId = boardSelect?.value || SELECT_BOARD_PLACEHOLDER_VALUE;
+    const saveReady = popupCanSaveCurrentTab && !!selectedPageId && !!selectedBoardId;
+    const label = popupCanSaveCurrentTab ? SAVE_BUTTON_DEFAULT_LABEL : 'Cannot save browser pages';
+    const icon = popupCanSaveCurrentTab ? SAVE_BUTTON_ICON : WARNING_BUTTON_ICON;
+
+    setSaveButtonState(icon, label, { disabled: !saveReady, saving: false });
+}
 
 function setPopupButtonState(buttonId, iconId, labelId, iconMarkup, labelText, options = {}) {
     const button = document.getElementById(buttonId);
@@ -194,10 +224,12 @@ async function openShortcutSettings() {
 async function init() {
     try {
         await refreshPopupThemeMode();
-        setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+        setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: true, saving: false });
         setSaveAllButtonState(SAVE_ALL_BUTTON_ICON, SAVE_ALL_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
 
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        popupActiveTabId = Number.isInteger(tab?.id) ? tab.id : null;
+        popupCanSaveCurrentTab = true;
 
         if (tab) {
             document.getElementById('pageTitle').textContent = tab.title || 'Untitled';
@@ -207,9 +239,11 @@ async function init() {
 
             // Check if it's a saveable URL
             if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || tab.url.startsWith('about:')) {
-                setSaveButtonState(WARNING_BUTTON_ICON, 'Cannot save browser pages', { disabled: true, saving: false });
+                popupCanSaveCurrentTab = false;
             }
         }
+
+        updatePopupSaveButtonAvailability();
 
         // Count saveable tabs in current window
         const allTabs = await chrome.tabs.query({ currentWindow: true });
@@ -288,9 +322,22 @@ async function getPopupAccountSyncState() {
 
 function resetQuickSavePageDropdown(select, { disabled = false } = {}) {
     if (!select) return;
-    select.innerHTML = '<option value="current">Current Page</option>';
-    select.value = 'current';
+    select.innerHTML = '<option value="">Select page</option>';
+    select.value = SELECT_PAGE_PLACEHOLDER_VALUE;
     select.disabled = disabled;
+}
+
+function resetPopupSelectionFlow() {
+    const pageSelect = document.getElementById('quickSavePage');
+    const boardSelect = document.getElementById('quickSaveBoard');
+
+    if (pageSelect) {
+        pageSelect.value = SELECT_PAGE_PLACEHOLDER_VALUE;
+    }
+
+    resetQuickSaveBoardDropdown(boardSelect, { disabled: true });
+    showBoardSettingRow(false);
+    updatePopupSaveButtonAvailability();
 }
 
 function setSyncBannerState({ visible, message, showSignInLink }) {
@@ -309,22 +356,82 @@ function setSyncBannerState({ visible, message, showSignInLink }) {
     }
 }
 
+function loadBoardsDropdown(pageId) {
+    return new Promise((resolve) => {
+        const boardSelect = document.getElementById('quickSaveBoard');
+        if (!boardSelect) {
+            resolve();
+            return;
+        }
+
+        if (!pageId) {
+            resetQuickSaveBoardDropdown(boardSelect, { disabled: true });
+            showBoardSettingRow(false);
+            updatePopupSaveButtonAvailability();
+            resolve();
+            return;
+        }
+
+        showBoardSettingRow(true);
+        resetQuickSaveBoardDropdown(boardSelect, { disabled: true });
+
+        chrome.runtime.sendMessage({ action: 'getBoardsForPage', pageId }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error('Failed to load boards:', chrome.runtime.lastError.message);
+                resetQuickSaveBoardDropdown(boardSelect, { disabled: true });
+                updatePopupSaveButtonAvailability();
+                resolve();
+                return;
+            }
+
+            const boards = Array.isArray(response?.boards) ? response.boards : [];
+            if (boards.length === 0) {
+                const option = document.createElement('option');
+                option.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+                option.textContent = 'No board found';
+                boardSelect.appendChild(option);
+                boardSelect.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+                boardSelect.disabled = true;
+                updatePopupSaveButtonAvailability();
+                resolve();
+                return;
+            }
+
+            boards.forEach((board) => {
+                const option = document.createElement('option');
+                option.value = board.id;
+                option.textContent = board.name;
+                boardSelect.appendChild(option);
+            });
+
+            boardSelect.value = SELECT_BOARD_PLACEHOLDER_VALUE;
+            boardSelect.disabled = false;
+            updatePopupSaveButtonAvailability();
+            resolve();
+        });
+    });
+}
+
 // Load available pages and populate dropdown
 async function loadPagesDropdown() {
     const select = document.getElementById('quickSavePage');
     if (!select) return;
 
+    resetPopupSelectionFlow();
+
     // Request pages list from background script
-    chrome.runtime.sendMessage({ action: 'getPages' }, async (response) => {
+    chrome.runtime.sendMessage({ action: 'getPages' }, (response) => {
         // Check for lastError first
         if (chrome.runtime.lastError) {
             console.error('Failed to load pages:', chrome.runtime.lastError.message);
             resetQuickSavePageDropdown(select, { disabled: true });
+            resetPopupSelectionFlow();
             return;
         }
         if (!response || !response.pages) {
             console.error('Failed to load pages: invalid response');
             resetQuickSavePageDropdown(select, { disabled: true });
+            resetPopupSelectionFlow();
             return;
         }
 
@@ -332,33 +439,15 @@ async function loadPagesDropdown() {
         resetQuickSavePageDropdown(select, { disabled: false });
 
         // Add each page as an option
-        const validPageIds = new Set();
         response.pages.forEach(page => {
-            validPageIds.add(page.id);
             const option = document.createElement('option');
             option.value = page.id;
             option.textContent = page.name;
             select.appendChild(option);
         });
 
-        // Load saved preference
-        try {
-            const result = await chrome.storage.local.get(['quickSavePageId']);
-            const storedId = result.quickSavePageId;
-            if (storedId) {
-                if (storedId !== 'current' && !validPageIds.has(storedId)) {
-                    // Selected page was deleted - fall back to Current Page
-                    select.value = 'current';
-                    await chrome.storage.local.set({ quickSavePageId: 'current' });
-                } else {
-                    select.value = storedId;
-                }
-            } else {
-                select.value = 'current';
-            }
-        } catch (error) {
-            console.error('Error loading quickSavePageId:', error);
-        }
+        select.value = SELECT_PAGE_PLACEHOLDER_VALUE;
+        updatePopupSaveButtonAvailability();
     });
 }
 
@@ -377,16 +466,37 @@ async function updateSyncStatus() {
 
 // Initialize all event listeners (called once)
 function initializeEventListeners() {
-    const select = document.getElementById('quickSavePage');
+    const pageSelect = document.getElementById('quickSavePage');
+    const boardSelect = document.getElementById('quickSaveBoard');
     const signInLink = document.getElementById('signInLink');
     const saveBtn = document.getElementById('saveBtn');
     const saveAllBtn = document.getElementById('saveAllBtn');
     const changeShortcutBtn = document.getElementById('changeShortcutBtn');
 
     // Save page preference when dropdown changes
-    if (select) {
-        select.addEventListener('change', async () => {
-            await chrome.storage.local.set({ quickSavePageId: select.value });
+    if (pageSelect) {
+        pageSelect.addEventListener('change', async () => {
+            const selectedPageId = pageSelect.value || SELECT_PAGE_PLACEHOLDER_VALUE;
+            if (!selectedPageId) {
+                showBoardSettingRow(false);
+                resetQuickSaveBoardDropdown(boardSelect, { disabled: true });
+                updatePopupSaveButtonAvailability();
+                return;
+            }
+
+            try {
+                await chrome.storage.local.set({ quickSavePageId: selectedPageId });
+            } catch (error) {
+                console.error('Failed to store selected page in popup:', error);
+            }
+
+            await loadBoardsDropdown(selectedPageId);
+        });
+    }
+
+    if (boardSelect) {
+        boardSelect.addEventListener('change', () => {
+            updatePopupSaveButtonAvailability();
         });
     }
 
@@ -407,14 +517,28 @@ function initializeEventListeners() {
 
     window.addEventListener('focus', () => {
         loadShortcutSettings().catch(err => console.error('Failed to refresh shortcut on focus:', err));
+        loadPagesDropdown().catch((err) => console.error('Failed to refresh popup pages on focus:', err));
     });
 
     // Handle save button click
     if (saveBtn) {
         saveBtn.addEventListener('click', async function () {
+            const pageSelect = document.getElementById('quickSavePage');
+            const boardSelect = document.getElementById('quickSaveBoard');
+            const selectedPageId = pageSelect?.value || SELECT_PAGE_PLACEHOLDER_VALUE;
+            const selectedBoardId = boardSelect?.value || SELECT_BOARD_PLACEHOLDER_VALUE;
+            if (!popupCanSaveCurrentTab || !selectedPageId || !selectedBoardId) {
+                updatePopupSaveButtonAvailability();
+                return;
+            }
+
             setSaveButtonState(BUTTON_SPINNER, 'Saving...', { disabled: true, saving: true });
 
-            chrome.runtime.sendMessage({ action: 'quickSave' }, (response) => {
+            chrome.runtime.sendMessage({
+                action: 'quickSaveToBoard',
+                boardId: selectedBoardId,
+                tabId: popupActiveTabId
+            }, (response) => {
                 document.getElementById('initialState').classList.remove('active');
 
                 // Check for lastError first
@@ -422,16 +546,14 @@ function initializeEventListeners() {
                     console.error('Quick save error:', chrome.runtime.lastError.message);
                     document.getElementById('errorState').classList.add('active');
                     document.getElementById('errorMessage').textContent = 'Extension error. Try reloading.';
-                    // Re-enable button after error
-                    setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    updatePopupSaveButtonAvailability();
                     return;
                 }
                 if (!response) {
                     console.error('Quick save error: no response');
                     document.getElementById('errorState').classList.add('active');
                     document.getElementById('errorMessage').textContent = 'Extension error. Try reloading.';
-                    // Re-enable button after error
-                    setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    updatePopupSaveButtonAvailability();
                     return;
                 }
 
@@ -440,15 +562,15 @@ function initializeEventListeners() {
                         document.getElementById('alreadyState').classList.add('active');
                     } else {
                         document.getElementById('successState').classList.add('active');
-                        document.getElementById('pageName').textContent = response.pageName || 'your page';
+                        const targetLabel = [response.boardName, response.pageName].filter(Boolean).join(' • ');
+                        document.getElementById('pageName').textContent = targetLabel || response.pageName || 'selected board';
                     }
                     // Auto-close after success
                     setTimeout(() => window.close(), 1500);
                 } else {
                     document.getElementById('errorState').classList.add('active');
                     document.getElementById('errorMessage').textContent = response.message;
-                    // Re-enable button after error
-                    setSaveButtonState(SAVE_BUTTON_ICON, SAVE_BUTTON_DEFAULT_LABEL, { disabled: false, saving: false });
+                    updatePopupSaveButtonAvailability();
                 }
             });
         });

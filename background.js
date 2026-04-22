@@ -307,6 +307,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
+    if (request.action === 'getShortcutBoardPickerData') {
+        getShortcutBoardPickerData()
+            .then((result) => {
+                sendResponse(result);
+            })
+            .catch((error) => {
+                console.error('Error loading shortcut board picker data:', error);
+                sendResponse({ success: false, message: error?.message || 'Failed to load boards' });
+            });
+        return true;
+    }
+
+    if (request.action === 'quickSaveToBoard') {
+        (async () => {
+            try {
+                const requestedTabId = Number(request?.tabId);
+                let targetTab = null;
+
+                if (Number.isInteger(requestedTabId) && requestedTabId >= 0) {
+                    try {
+                        targetTab = await chrome.tabs.get(requestedTabId);
+                    } catch (tabLookupError) {
+                        console.warn('[ShortcutSave] Failed to resolve requested tab id:', tabLookupError);
+                    }
+                }
+
+                if (!targetTab) {
+                    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                    targetTab = activeTab || null;
+                }
+
+                const result = await quickSaveTabToBoard(targetTab, request?.boardId);
+                sendResponse(result);
+            } catch (error) {
+                console.error('Error in quickSaveToBoard:', error);
+                sendResponse({ success: false, message: error?.message || 'Failed to save to board' });
+            }
+        })();
+        return true;
+    }
+
     if (request.action === 'saveAllTabs') {
         saveAllTabs()
             .then(result => {
@@ -330,6 +371,47 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             } catch (error) {
                 console.error('Error getting pages:', error);
                 sendResponse({ pages: [] });
+            }
+        })();
+        return true;
+    }
+
+    if (request.action === 'getBoardsForPage') {
+        (async () => {
+            try {
+                const pageId = typeof request?.pageId === 'string' ? request.pageId : '';
+                if (!pageId) {
+                    sendResponse({ boards: [] });
+                    return;
+                }
+
+                const boards = await db.boards
+                    .where('pageId')
+                    .equals(pageId)
+                    .filter((board) => !board.deletedAt)
+                    .toArray();
+
+                boards.sort((a, b) => {
+                    const colA = Number.isFinite(a?.columnIndex) ? a.columnIndex : 0;
+                    const colB = Number.isFinite(b?.columnIndex) ? b.columnIndex : 0;
+                    if (colA !== colB) return colA - colB;
+
+                    const orderA = Number.isFinite(a?.order) ? a.order : 0;
+                    const orderB = Number.isFinite(b?.order) ? b.order : 0;
+                    if (orderA !== orderB) return orderA - orderB;
+
+                    return (a?.name || '').localeCompare(b?.name || '');
+                });
+
+                sendResponse({
+                    boards: boards.map((board) => ({
+                        id: board.id,
+                        name: board.name || 'Untitled Board'
+                    }))
+                });
+            } catch (error) {
+                console.error('Error getting boards for page:', error);
+                sendResponse({ boards: [] });
             }
         })();
         return true;

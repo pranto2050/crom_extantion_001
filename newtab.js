@@ -1458,7 +1458,7 @@ async function processSupabaseAuthStateChange(listenerState, event, session) {
     }
 }
 
-if (!featureFactories.uiModes || !featureFactories.quickSaveSettings || !featureFactories.search || !featureFactories.wallpaper) {
+if (!featureFactories.uiModes || !featureFactories.quickSaveSettings || !featureFactories.shortcutBoardSettings || !featureFactories.search || !featureFactories.wallpaper) {
     throw new Error('LumiList feature modules failed to load before newtab.js');
 }
 
@@ -1517,6 +1517,17 @@ const {
     loadSettingsQuickSaveDestinationOptions,
     refreshSettingsQuickSaveControls
 } = quickSaveSettingsFeature;
+
+const shortcutBoardSettingsFeature = featureFactories.shortcutBoardSettings({
+    db,
+    canMutateAccountScopedPreferences
+});
+
+const {
+    loadShortcutBoardSettingsControls,
+    saveShortcutDefaultBoardSetting,
+    saveShortcutUseLastBoardSetting
+} = shortcutBoardSettingsFeature;
 
 let _lastLoginSyncSignal = { userId: null, timestamp: 0 };
 let _pendingCrossTabLoginUserId = null;
@@ -2201,6 +2212,19 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged)
                 if (settingsModal && settingsModal.classList.contains('active')) {
                     refreshSettingsQuickSaveControls().catch((error) => {
                         console.error('Failed to refresh quick save settings after storage change:', error);
+                    });
+                }
+            }
+
+            if (
+                areaName === 'local' &&
+                canApplyAccountScopedStorageState &&
+                (changes.shortcutDefaultBoardId || changes.shortcutUseLastBoard || changes.shortcutLastBoardId)
+            ) {
+                const settingsModal = document.getElementById('settingsModal');
+                if (settingsModal && settingsModal.classList.contains('active')) {
+                    loadShortcutBoardSettingsControls().catch((error) => {
+                        console.error('Failed to refresh shortcut board settings after storage change:', error);
                     });
                 }
             }
@@ -8761,6 +8785,9 @@ async function openSettingsModal() {
     refreshSettingsQuickSaveControls().catch((error) => {
         console.error('Failed to refresh quick save settings controls:', error);
     });
+    loadShortcutBoardSettingsControls().catch((error) => {
+        console.error('Failed to refresh shortcut board settings controls:', error);
+    });
 
     // Update account section - fast lookup from storage
     const loggedIn = document.getElementById('settingsLoggedIn');
@@ -12505,10 +12532,37 @@ function setupModalEventListeners() {
         });
     }
 
+    const settingsShortcutDefaultBoard = document.getElementById('settingsShortcutDefaultBoard');
+    if (settingsShortcutDefaultBoard) {
+        settingsShortcutDefaultBoard.addEventListener('change', async () => {
+            try {
+                await saveShortcutDefaultBoardSetting();
+            } catch (error) {
+                console.error('Failed to save shortcut default board:', error);
+                showGlassToast('Failed to save shortcut default board. Please try again.', 'error');
+            }
+        });
+    }
+
+    const settingsShortcutUseLastBoardToggle = document.getElementById('settingsShortcutUseLastBoardToggle');
+    if (settingsShortcutUseLastBoardToggle) {
+        settingsShortcutUseLastBoardToggle.addEventListener('change', async () => {
+            try {
+                await saveShortcutUseLastBoardSetting();
+            } catch (error) {
+                console.error('Failed to save shortcut board preference:', error);
+                showGlassToast('Failed to save shortcut board preference. Please try again.', 'error');
+            }
+        });
+    }
+
     window.addEventListener('focus', () => {
         if (settingsModal && settingsModal.classList.contains('active')) {
             loadSettingsQuickSaveShortcut().catch(err => {
                 console.error('Failed to refresh quick save shortcut in settings:', err);
+            });
+            loadShortcutBoardSettingsControls().catch((error) => {
+                console.error('Failed to refresh shortcut board settings in settings modal:', error);
             });
         }
     });

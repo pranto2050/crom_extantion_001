@@ -24,6 +24,7 @@
     <script defer src="newtab/ui/privacy-ui.js"></script>
     <script defer src="newtab/features/ui-modes.js"></script>
     <script defer src="newtab/features/quick-save-settings.js"></script>
+    <script defer src="newtab/features/shortcut-board-settings.js"></script>
     <script defer src="newtab/features/search.js"></script>
     <script defer src="newtab/features/wallpaper.js"></script>
     <script defer src="newtab/flows/data-sync.js"></script>
@@ -883,6 +884,13 @@
                             </svg>
                             Support
                         </button>
+                        <button class="settings-nav-item" data-tab="shortcuts">
+                            <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 9a3 3 0 015.196-2.09L13 8.714l1.804-1.804A3 3 0 1119.046 11L17.242 12.8l1.804 1.804a3 3 0 11-4.242 4.242L13 16.988l-1.804 1.804a3 3 0 01-4.242-4.242L8.758 12.8 6.954 11A2.99 2.99 0 016 9z" />
+                            </svg>
+                            Shortcuts
+                        </button>
                     </nav>
                 </div>
 
@@ -1145,19 +1153,19 @@
                                 </label>
                             </div>
 
-                            <div class="quick-save-setting">
-                                <div class="toggle-label">
-                                    <span class="toggle-label-title">Quick Save destination</span>
-                                    <span class="toggle-label-description">Where to save new links</span>
-                                </div>
-                                <select id="settingsQuickSavePage" class="setting-select">
-                                    <option value="current">Current Page</option>
-                                </select>
-                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Shortcuts Tab -->
+                    <div class="settings-tab-pane" id="settingsShortcutsTab">
+                        <h2 class="settings-pane-title">Shortcut Settings</h2>
+
+                        <div class="settings-group-card">
+                            <h4 class="settings-subtitle">Quick Save Shortcut</h4>
 
                             <div class="quick-save-setting">
                                 <div class="toggle-label">
-                                    <span class="toggle-label-title">Change quick save shortcut</span>
+                                    <span class="toggle-label-title">Active shortcut</span>
                                     <span class="toggle-label-description" id="settingsQuickSaveShortcutNote">Open
                                         browser shortcut settings to change this key.</span>
                                 </div>
@@ -1166,6 +1174,43 @@
                                     <button type="button" class="setting-btn"
                                         id="settingsChangeShortcutBtn">Change</button>
                                 </div>
+                            </div>
+
+                            <div class="quick-save-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Quick Save destination page</span>
+                                    <span class="toggle-label-description">Choose which page is used by popup save and
+                                        fallback quick-save logic.</span>
+                                </div>
+                                <select id="settingsQuickSavePage" class="setting-select">
+                                    <option value="current">Current Page</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="settings-group-card">
+                            <h4 class="settings-subtitle">Shortcut Board Picker</h4>
+
+                            <div class="quick-save-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Default board in picker</span>
+                                    <span class="toggle-label-description">Preselect a board when shortcut picker opens.</span>
+                                </div>
+                                <select id="settingsShortcutDefaultBoard" class="setting-select">
+                                    <option value="">Always choose manually</option>
+                                </select>
+                            </div>
+
+                            <div class="toggle-setting">
+                                <div class="toggle-label">
+                                    <span class="toggle-label-title">Use last saved board first</span>
+                                    <span class="toggle-label-description">When enabled, shortcut picker remembers your
+                                        last board and selects it automatically.</span>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settingsShortcutUseLastBoardToggle">
+                                    <span class="toggle-slider"></span>
+                                </label>
                             </div>
                         </div>
                     </div>
