@@ -11943,6 +11943,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                 startupStorage,
                 deferBootstrap: false
             });
+            
+            // Auto-sync Chrome bookmarks to workspace
+            if (typeof ChromeBookmarksSync !== 'undefined') {
+                void ChromeBookmarksSync.syncToWorkspace();
+            }
         } finally {
             finishWorkspaceStartupShell();
         }
